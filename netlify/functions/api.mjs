@@ -21,6 +21,16 @@ async function handle(req){
  if(method==='OPTIONS')return json(200,{});
  let b={};if(method==='POST'){const raw=await req.text();if(raw.length>4096)return json(413,{error:'Anfrage zu groß'});try{b=JSON.parse(raw||'{}')}catch{return json(400,{error:'Ungültiges JSON'})}}
  if(endpoint==='create'&&method==='POST'){
+  const accessToken=b.access_token;
+  if(typeof accessToken!=='string'||accessToken.length<20)return json(401,{error:'Bitte anmelden, um eine Spielsitzung zu erstellen.'});
+  const base=process.env.SUPABASE_URL;
+  const publishable='sb_publishable_ql4BxoH-no03FyVc_g-sGg_O9zChjGS';
+  if(!base)throw Error('Supabase-Konfiguration fehlt');
+  const authResponse=await fetch(base.replace(/\\/$/,'')+'/auth/v1/user',{headers:{apikey:publishable,Authorization:'Bearer '+accessToken}});
+  if(!authResponse.ok)return json(401,{error:'Anmeldung ungültig oder abgelaufen'});
+  const authUser=await authResponse.json();
+  const profiles=await db('rw_profiles?user_id=eq.'+encodeURIComponent(authUser.id)+'&select=is_premium');
+  if(profiles[0]?.is_premium!==true)return json(403,{error:'Nur Premium-Mitglieder dürfen Spiele erstellen.'});
   const owner=token(),title=String(b.title||'Neue Kampagne').trim().slice(0,70)||'Neue Kampagne';
   for(let n=0;n<5;n++){try{const c=code();await db('rw_rooms',{method:'POST',body:{code:c,owner_hash:hash(owner),title,data:defaultData()},prefer:'return=representation'});return json(201,{code:c,token:owner});}catch(e){if(!String(e).includes('23505'))throw e}}
   throw Error('Konnte keinen Sitzungscode erstellen');
