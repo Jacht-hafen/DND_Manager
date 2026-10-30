@@ -26,7 +26,7 @@ async function handle(req){
   const base=process.env.SUPABASE_URL;
   const publishable='sb_publishable_ql4BxoH-no03FyVc_g-sGg_O9zChjGS';
   if(!base)throw Error('Supabase-Konfiguration fehlt');
-  const authResponse=await fetch(base.replace(/\\/$/,'')+'/auth/v1/user',{headers:{apikey:publishable,Authorization:'Bearer '+accessToken}});
+  const authResponse=await fetch(base.replace(/\/$/,'')+'/auth/v1/user',{headers:{apikey:publishable,Authorization:'Bearer '+accessToken}});
   if(!authResponse.ok)return json(401,{error:'Anmeldung ungültig oder abgelaufen'});
   const authUser=await authResponse.json();
   const profiles=await db('rw_profiles?user_id=eq.'+encodeURIComponent(authUser.id)+'&select=is_premium');
