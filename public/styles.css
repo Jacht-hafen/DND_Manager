@@ -42,3 +42,6 @@ p,small{color:var(--sub)}p{line-height:1.65}
 .sound,.select-tile,.theme-card,.mirror-art,.plate,.lever{box-shadow:none}
 .sidebar{background:#eeeae2}.sidebar-foot{background:#fffdf9}.nav-btn.active{background:#eaded3;color:#812b29}
 @media(max-width:700px){.cards{grid-template-columns:1fr}.top{align-items:flex-start}.topright{justify-content:flex-end}.hero{padding:4px 0 20px}.card-body{padding:17px}.library-detail .wide-card{padding:20px}}
+
+/* Typography: Arial everywhere */
+html,body,button,input,select,textarea,h1,h2,h3,h4,h5,h6,.brand,.eyebrow,.stat strong,.clue,.avatar{font-family:Arial,Helvetica,sans-serif!important}
