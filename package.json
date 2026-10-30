@@ -1,0 +1,1 @@
+{"name":"runenwerk-online","version":"2.0.0","private":true,"type":"module","scripts":{"dev":"netlify dev","check":"node --check app.js && node --check netlify/functions/api.mjs && node --test tests/*.test.mjs"},"engines":{"node":">=20"},"devDependencies":{"netlify-cli":"^23.0.0"}}
