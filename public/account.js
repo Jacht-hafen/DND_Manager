@@ -1,5 +1,5 @@
 import{createClient}from'https://esm.sh/@supabase/supabase-js@2.49.4';
-const db=createClient('https://pdupzfggfdwvbmosopuz.supabase.co','sb_publishable_eO-c5CBF7DsUi3bFrel6rw_D7ZId_XV'),$=id=>document.getElementById(id);
+const db=createClient('https://zxzrtwfzouhbfdzextxo.supabase.co','sb_publishable_ql4BxoH-no03FyVc_g-sGg_O9zChjGS'),$=id=>document.getElementById(id);
 const msg=(s)=>$('msg').textContent=s;
 async function refresh(){const{data:{user}}=await db.auth.getUser();$('auth').hidden=!!user;$('dashboard').hidden=!user;if(!user)return;
 const{data:p}=await db.from('rw_profiles').select('display_name,is_premium').eq('user_id',user.id).single();$('hello').textContent='Willkommen '+(p?.display_name||user.email);$('plan').textContent=p?.is_premium?'Premium – Gruppen erstellen freigeschaltet':'Free – Gruppen beitreten möglich';$('createBtn').disabled=!p?.is_premium;
