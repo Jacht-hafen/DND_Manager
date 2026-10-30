@@ -1,7 +1,9 @@
-import {randomBytes,createHash,timingSafeEqual} from 'node:crypto';
+import {randomBytes,createHash,timingSafeEqual,scryptSync} from 'node:crypto';
 import {applyAction,defaultData} from './engine.mjs';
 const json=(status,data)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const hash=s=>createHash('sha256').update(s).digest('hex');
+const passwordHash=p=>{const salt=randomBytes(16).toString('hex');return salt+':'+scryptSync(p,salt,64).toString('hex')};
+const checkPassword=(p,stored)=>{if(typeof p!=='string'||!stored||!stored.includes(':'))return false;const [salt,digest]=stored.split(':');if(!/^[a-f0-9]{32}$/.test(salt)||!/^[a-f0-9]{128}$/.test(digest))return false;return timingSafeEqual(scryptSync(p,salt,64),Buffer.from(digest,'hex'))};
 const token=()=>randomBytes(32).toString('base64url');
 const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const code=()=>Array.from(randomBytes(6),x=>alphabet[x%alphabet.length]).join('');
@@ -31,13 +33,23 @@ async function handle(req){
   const authUser=await authResponse.json();
   const profiles=await db('rw_profiles?user_id=eq.'+encodeURIComponent(authUser.id)+'&select=is_premium');
   if(profiles[0]?.is_premium!==true)return json(403,{error:'Nur Premium-Mitglieder dürfen Spiele erstellen.'});
+  const pass=String(b.password||'');if(pass.length<8||pass.length>100)return json(400,{error:'Das Raum-Passwort muss 8 bis 100 Zeichen lang sein.'});
   const owner=token(),title=String(b.title||'Neue Kampagne').trim().slice(0,70)||'Neue Kampagne';
-  for(let n=0;n<5;n++){try{const c=code();await db('rw_rooms',{method:'POST',body:{code:c,owner_hash:hash(owner),title,data:defaultData()},prefer:'return=representation'});return json(201,{code:c,token:owner});}catch(e){if(!String(e).includes('23505'))throw e}}
+  for(let n=0;n<5;n++){try{const c=code();await db('rw_rooms',{method:'POST',body:{code:c,owner_hash:hash(owner),title,password_hash:passwordHash(pass),data:defaultData()},prefer:'return=representation'});return json(201,{code:c,token:owner});}catch(e){if(!String(e).includes('23505'))throw e}}
   throw Error('Konnte keinen Sitzungscode erstellen');
+ }
+ if(endpoint==='check-code'&&method==='POST'){
+  const c=String(b.code||'').trim().toUpperCase();if(!validCode(c))return json(400,{error:'Bitte einen gültigen sechsstelligen Code eingeben.'});
+  try{const room=await getRoom(c);if(!room.password_hash)return json(409,{error:'Dieser ältere Raum besitzt noch kein Passwort. Bitte einen neuen Raum erstellen.'});return json(200,{exists:true,title:room.title})}catch{return json(404,{error:'Kein aktives Spiel mit diesem Code gefunden.'})}
+ }
+ if(endpoint==='check-password'&&method==='POST'){
+  const c=String(b.code||'').trim().toUpperCase();if(!validCode(c))return json(400,{error:'Ungültiger Sitzungscode'});
+  const room=await getRoom(c);if(!checkPassword(b.password,room.password_hash))return json(403,{error:'Falsches Raum-Passwort'});
+  return json(200,{valid:true,title:room.title});
  }
  if(endpoint==='join'&&method==='POST'){
   const c=String(b.code||'').toUpperCase();if(!validCode(c))return json(400,{error:'Ungültiger Sitzungscode'});
-  const room=await getRoom(c),name=String(b.name||'').trim().slice(0,32),role=String(b.role||'');
+  const room=await getRoom(c);if(!checkPassword(b.password,room.password_hash))return json(403,{error:'Falsches Raum-Passwort'});const name=String(b.name||'').trim().slice(0,32),role=String(b.role||'');
   if(name.length<2||!/^[abc]$/.test(role))return json(400,{error:'Name (min. 2 Zeichen) und Rolle A/B/C wählen'});
   const players=await db(`rw_players?room_id=eq.${room.id}&select=id,role,name`);
   if(players.some(p=>p.role===role))return json(409,{error:`Rolle ${role.toUpperCase()} ist bereits vergeben`});
