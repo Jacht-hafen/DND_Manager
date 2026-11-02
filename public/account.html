@@ -1,1 +1,59 @@
-<!doctype html><html lang="de"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Runenwerk · Konto</title><link rel="stylesheet" href="/styles.css"><style>body{background:#101721;color:#eee5d4;font:16px system-ui}.wrap{max-width:850px;margin:auto;padding:30px}section{background:#1c2938;border:1px solid #405269;border-radius:12px;padding:24px;margin:16px 0}input,button{padding:12px;margin:8px;border-radius:7px;border:1px solid #66788d}input{background:#101721;color:white}button{background:#d5a764;color:#121b29;cursor:pointer}button:disabled{opacity:.4}a{color:#e8b97b}</style><style>body{background:#f3f0e9!important;color:#242323!important;font-family:Arial,Helvetica,sans-serif!important}.wrap{max-width:900px;margin:auto;padding:30px 18px}h1,h2{font-family:Georgia,serif;color:#292625}h1{border-bottom:3px solid #812b29;padding-bottom:18px}section{background:#fffdf9;border:1px solid #d2cec5;border-radius:3px;margin:18px 0;padding:24px}a{color:#812b29}input{border:1px solid #a8a197;border-radius:3px;background:#fff;color:#222;padding:12px}button{background:#812b29;color:white;border:1px solid #812b29;border-radius:3px;padding:11px 16px;cursor:pointer}button:disabled{opacity:.4}</style><main class="wrap"><h1>Runenwerk – Mein Konto</h1><a href="/">Zur Rätselplattform</a><p id="msg"></p><section id="auth"><h2>Anmelden</h2><form id="login"><input name="email" type="email" placeholder="E-Mail" required><input name="password" type="password" placeholder="Passwort" required><button>Anmelden</button></form><h2>Registrieren</h2><form id="register"><input name="name" placeholder="Spielername" required><input name="email" type="email" placeholder="E-Mail" required><input name="password" type="password" minlength="8" placeholder="Passwort" required><button>Konto erstellen</button></form></section><div id="dashboard" hidden><section><h2 id="hello"></h2><p id="plan"></p><button id="logout">Abmelden</button></section><section><h2>Meine Gruppen</h2><div id="groups"></div></section><section><h2>Gruppe erstellen (Premium)</h2><form id="create"><input name="name" placeholder="Gruppenname" minlength="3" required><button id="createBtn">Erstellen</button></form></section><section><h2>Gruppe beitreten (kostenlos)</h2><form id="join"><input name="code" placeholder="Einladungscode" required><button>Beitreten</button></form></section></div></main><script type="module" src="/account.js"></script>
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f7f5f1">
+<title>Runenwerk – Konto und Gruppen</title>
+<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/ui-overhaul.css?v=2">
+<style>
+.account-wrap{width:min(100% - 36px,900px);margin:auto;padding:0 0 80px}
+.account-wrap .top{margin-bottom:34px}
+.account-wrap h1{font:700 34px/1.2 Arial,sans-serif;margin:0 0 12px}
+.account-wrap h2{font:700 22px/1.25 Arial,sans-serif;margin:0 0 16px}
+.account-wrap section{background:#fff;border:1px solid #d9d4cc;border-radius:3px;padding:24px;margin:20px 0}
+.account-wrap form{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.account-wrap label{display:flex;flex-direction:column;gap:7px;font-size:14px;font-weight:600;color:#383532;flex:1 1 180px}
+.account-wrap input{display:block;min-height:43px;width:100%;padding:10px 12px;margin:0}
+.account-wrap button{min-height:43px;border:1px solid #7c2826;background:#7c2826;color:#fff;border-radius:3px;padding:10px 16px;font-weight:600;cursor:pointer}
+.account-wrap button:hover{background:#63201f}.account-wrap button:disabled{opacity:.55}
+.account-wrap #msg:not(:empty){padding:12px 15px;background:#eee9e2;border-left:3px solid #7c2826;color:#342f2a}
+.account-wrap #groups p{border-bottom:1px solid #e8e3dc;padding-bottom:12px}
+.account-wrap #dashboard[hidden],.account-wrap #auth[hidden]{display:none}
+.account-intro{color:#5c5954;margin:0 0 20px}
+@media(max-width:600px){.account-wrap form{flex-direction:column;align-items:stretch}.account-wrap label,.account-wrap button{width:100%;flex:auto}.account-wrap section{padding:18px}}
+</style>
+</head>
+<body>
+<main class="account-wrap">
+<header class="top"><a href="/" class="brand">RUNENWERK</a><nav class="topright" aria-label="Hauptnavigation"><a class="nav-link" href="/">Rätselbibliothek</a></nav></header>
+<h1>Konto und Gruppen</h1>
+<p class="account-intro">Melde dich an, verwalte deine Gruppen oder tritt einer Gruppe mit Einladungscode bei.</p>
+<p id="msg" role="status" aria-live="polite"></p>
+<div id="auth">
+<section aria-labelledby="login-heading"><h2 id="login-heading">Anmelden</h2>
+<form id="login">
+<label>E-Mail-Adresse<input name="email" type="email" autocomplete="email" required></label>
+<label>Passwort<input name="password" type="password" autocomplete="current-password" required></label>
+<button type="submit">Anmelden</button>
+</form></section>
+<section aria-labelledby="register-heading"><h2 id="register-heading">Konto erstellen</h2>
+<form id="register">
+<label>Spielername<input name="name" autocomplete="nickname" required></label>
+<label>E-Mail-Adresse<input name="email" type="email" autocomplete="email" required></label>
+<label>Passwort (mindestens 8 Zeichen)<input name="password" type="password" autocomplete="new-password" minlength="8" required></label>
+<button type="submit">Registrieren</button>
+</form></section>
+</div>
+<div id="dashboard" hidden>
+<section><h2 id="hello"></h2><p id="plan"></p><button id="logout" type="button">Abmelden</button></section>
+<section><h2>Meine Gruppen</h2><div id="groups"></div></section>
+<section><h2>Gruppe erstellen</h2><p>Nur mit Premium-Mitgliedschaft.</p><form id="create">
+<label>Gruppenname<input name="name" minlength="3" required></label>
+<button id="createBtn" type="submit">Gruppe erstellen</button>
+</form></section>
+<section><h2>Gruppe beitreten</h2><p>Mit einem Einladungscode kannst du einer bestehenden Gruppe kostenlos beitreten.</p>
+<form id="join"><label>Einladungscode<input name="code" autocomplete="off" required></label><button type="submit">Beitreten</button></form>
+</section></div>
+</main>
+<script type="module" src="/account.js"></script>
+</body></html>
