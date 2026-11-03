@@ -26,7 +26,7 @@ p,small{color:var(--sub)}p{line-height:1.65}
 .card-body h3{font-size:22px;margin:12px 0 4px}.card-body p{font-size:14px;margin:8px 0 14px}
 .tag{font:700 11px Arial,sans-serif;letter-spacing:0;color:#812b29;border:0;border-radius:0;background:none;padding:0;text-transform:none}
 .btn,.btn.primary,.btn.ghost{background:#812b29;color:#db0909;border:1px solid #812b29;border-radius:3px;font-family:Arial,Helvetica,sans-serif;font-weight:600;box-shadow:none;padding:10px 15px}
-.btn.primary{background:#812b29;color:#fff}.btn:hover{background:#eee6dd;border-color:#812b29}.btn.primary:hover{background:#6a2120;color:#fff}.btn.small{font-size:13px;padding:8px 12px}
+.btn.primary{background:#812b29;color:#f11010}.btn:hover{background:#eee6dd;border-color:#812b29}.btn.primary:hover{background:#6a2120;color:#fff}.btn.small{font-size:13px;padding:8px 12px}
 .wide-card{padding:25px}.library-detail{max-width:870px}.library-detail .wide-card{padding:30px}.library-detail h1{font-size:clamp(30px,4vw,44px)}.library-detail h3{color:#242323;padding-bottom:7px;border-bottom:1px solid #dedad2}
 .library-facts span{border:1px solid #d2cec5;color:#444;background:#f3f0e9;border-radius:2px}
 .input,input,textarea,select{border-radius:3px!important;box-shadow:none!important}
