@@ -19,7 +19,7 @@ a{color:var(--rw-red)}a:hover{text-decoration:underline}
 .hero p{max-width:720px;font-size:17px;line-height:1.6;color:#504b47;margin:0 0 22px}
 .hero .actions{display:flex;gap:12px}
 .btn,.btn.primary,.btn.ghost{font:600 14px Arial,Helvetica,sans-serif!important;min-height:42px;padding:10px 16px;border-radius:3px;background:#fff;color:var(--rw-red);border:1px solid var(--rw-red);box-shadow:none;text-decoration:none;transition:background-color .12s,color .12s,border-color .12s}
-.btn:hover,.btn.ghost:hover{background:#f1e9e6;color:var(--rw-red)}.btn.primary{background:var(--rw-red);color:#fff}.btn.primary:hover{background:var(--rw-red-hover);color:#fff}
+.btn:hover,.btn.ghost:hover{background:#f1e9e6;color:var(--rw-red)}.btn.primary{background:var(--rw-red);color:#f112d7}.btn.primary:hover{background:var(--rw-red-hover);color:#fff}
 .btn.small{min-height:38px;font-size:13px;padding:8px 13px}
 .btn:disabled{opacity:.55;cursor:not-allowed}
 .section{margin-top:38px}.sectionhead{display:flex;align-items:flex-end;justify-content:space-between;gap:15px;margin-bottom:15px;padding:0 0 14px;border-bottom:1px solid var(--rw-line)}
