@@ -84,3 +84,13 @@ npm run check
 ```
 
 Tests prüfen unter anderem Zugriffsrollen, Rätsellösungen und Zurücksetzungen.
+
+## Vercel und Sicherheit
+
+- Das statische Frontend liegt in `public/`. Vercel benutzt `vercel.json` und die Funktion `api/[endpoint].js`; Netlify benutzt weiterhin `netlify/functions/api.mjs`.
+- In Vercel müssen `SUPABASE_URL` und `SUPABASE_SERVICE_ROLE_KEY` als **serverseitige** Umgebungsvariablen gesetzt werden. Der Service-Role-Schlüssel darf niemals im Frontend stehen.
+- Die API validiert Codes und Namen, begrenzt JSON-Anfragen, prüft Herkunft bei Browser-POSTs, verlangt Authentifizierung für Raumaktionen und gibt interne Datenbankfehler nicht an Clients weiter.
+- PostgREST-Filter nutzen validierte Codes und kodierte Werte, keine direkte SQL-Stringkonkatenation. Das schützt vor SQL-Injection in diesen Endpunkten, ersetzt aber keine Prüfung zukünftiger SQL-Zugriffe.
+- Die im API-Code enthaltene Rate-Begrenzung ist **nur pro Server-Instanz** und daher kein zuverlässiger Schutz gegen verteilte Brute-Force-Angriffe. Vor öffentlichem Launch Vercel Firewall-/WAF-Rate-Limits für `/api/check-password`, `/api/join`, `/api/check-code` und `/api/create` einrichten, gegebenenfalls mit Captcha oder zentralem Rate-Limit-Speicher.
+- Einstellungen für RLS, minimale Berechtigungen, Secret-Rotation, Monitoring, Abuse-Alerts, Backups und Passwort-Reset müssen im Supabase-/Vercel-Dashboard separat geprüft werden.
+- Sicherheitstests: `npm run check`. Nach Deployment mit Testkonten die komplette Anmeldung, Premium-Rechte und den Raumbeitritt prüfen.
