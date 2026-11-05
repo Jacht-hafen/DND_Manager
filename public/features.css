@@ -1,0 +1,10 @@
+/* Runenwerk: library search, favorite and DM controls */
+.library-filters{display:flex;align-items:end;flex-wrap:wrap;gap:12px;padding:18px 0 23px}
+.library-filters label{display:flex;flex-direction:column;gap:7px;font:600 13px Arial,Helvetica,sans-serif;color:#403b36;flex:1 1 155px}
+.library-filters label:first-child{flex-grow:2}
+.library-filters .input{width:100%;min-height:42px;padding:9px 12px}
+.library-filters .btn{min-height:42px;margin:0}
+.library-filters select{font-size:14px!important}
+.room-head .code-card{max-width:100%}
+.work-buttons{display:flex;flex-wrap:wrap;gap:10px}
+@media(max-width:680px){.library-filters{align-items:stretch;flex-direction:column}.library-filters label,.library-filters .btn{width:100%;flex:auto}.library-filters input,.library-filters select{width:100%}}

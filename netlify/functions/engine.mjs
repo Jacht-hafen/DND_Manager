@@ -17,6 +17,7 @@ export function applyAction(room,player,action){
  if(action.type==='select' && host){if(!PUZZLES.some(x=>x.id===action.puzzle))throw Error('Rätsel unbekannt');room.puzzle=action.puzzle;room.phase='playing';d.steps=[];d.plates={};d.switches=[false,false,false];d.entered=false;d.fireStart=0;message='Rätsel gestartet';}
  else if(action.type==='phase' && host){if(!['lobby','playing','paused'].includes(action.phase))throw Error('Ungültige Phase');room.phase=action.phase;message='Sitzung aktualisiert';}
  else if(action.type==='reset' && host){d.steps=[];d.plates={};d.switches=[false,false,false];d.entered=false;d.fireStart=0;d.solved=d.solved.filter(x=>x!==p);message='Rätsel zurückgesetzt';}
+ else if(action.type==='hint' && host){const text=String(action.text||'').trim();if(!text||text.length>280)throw Error('Hinweis muss 1 bis 280 Zeichen enthalten');message='Hinweis vom DM: '+text;}
  else if(action.type==='theme' && host){if(!['ember','forest','crypt'].includes(action.theme))throw Error('Ungültiges Theme');room.theme=action.theme;message='Design geändert';}
  else if(action.type==='solve' && host){complete(d,p);message='Rätsel freigegeben';}
  else {

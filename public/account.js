@@ -124,5 +124,35 @@ $('join').onsubmit = async e => {
   await refresh();
 };
 
-db.auth.onAuthStateChange(() => setTimeout(refresh, 0));
+$('password-reset').onsubmit=async e=>{
+ e.preventDefault();const email=String(new FormData(e.target).get('email')||'').trim();
+ const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:location.origin+'/account.html'});
+ msg(error?.message||'Falls das Konto existiert, erhältst du eine E-Mail mit dem Reset-Link.');
+};
+$('password-update').onsubmit=async e=>{
+ e.preventDefault();const password=String(new FormData(e.target).get('password')||'');
+ if(password.length<12){msg('Bitte mindestens 12 Zeichen verwenden.');return}
+ const {error}=await db.auth.updateUser({password});msg(error?.message||'Passwort geändert');
+ if(!error)$('password-recovery').hidden=true;
+};
+$('export-data').onclick=async()=>{
+ try{
+ const {data:{user}}=await db.auth.getUser();if(!user)throw Error('Nicht angemeldet');
+ const tables=['rw_profiles','rw_groups','rw_memberships','rw_campaigns','rw_session_index','rw_custom_puzzles','rw_favorites','rw_reviews','rw_handouts'];
+ const result={exported_at:new Date().toISOString()};
+ for(const name of tables){const {data,error}=await db.from(name).select('*');if(error)throw error;result[name]=data}
+ const url=URL.createObjectURL(new Blob([JSON.stringify(result,null,2)],{type:'application/json'}));
+ const a=document.createElement('a');a.href=url;a.download='runenwerk-daten.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);msg('Datenexport erstellt');
+ }catch(error){msg(error.message)}
+};
+$('delete-account').onclick=async()=>{
+ const confirmation=prompt('Zum unwiderruflichen Löschen KONTO LÖSCHEN eingeben:');
+ if(confirmation!=='KONTO LÖSCHEN')return;
+ if(!confirm('Konto und zugehörige Daten endgültig löschen?'))return;
+ try{const {data:{session}}=await db.auth.getSession();if(!session)throw Error('Bitte erneut anmelden');
+ const res=await fetch('/api/delete-account',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({access_token:session.access_token,confirm:confirmation})});
+ const result=await res.json();if(!res.ok)throw Error(result.error||'Löschen fehlgeschlagen');
+ await db.auth.signOut();location.href='/';}catch(error){msg(error.message)}
+};
+db.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY')$('password-recovery').hidden=false;setTimeout(refresh,0)});
 refresh();

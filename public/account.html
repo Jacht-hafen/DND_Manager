@@ -26,7 +26,7 @@
 </head>
 <body>
 <main class="account-wrap">
-<header class="top"><a href="/" class="brand">RUNENWERK</a><nav class="topright" aria-label="Hauptnavigation"><a class="nav-link" href="/">Rätselbibliothek</a></nav></header>
+<header class="top"><a href="/" class="brand">RUNENWERK</a><nav class="topright" aria-label="Hauptnavigation"><a class="nav-link" href="/">Rätselbibliothek</a><a class="nav-link" href="/workspace.html">Arbeitsbereich</a></nav></header>
 <h1>Konto und Gruppen</h1>
 <p class="account-intro">Melde dich an, verwalte deine Gruppen oder tritt einer Gruppe mit Einladungscode bei.</p>
 <p id="msg" role="status" aria-live="polite"></p>
@@ -36,7 +36,7 @@
 <label>E-Mail-Adresse<input name="email" type="email" autocomplete="email" required></label>
 <label>Passwort<input name="password" type="password" autocomplete="current-password" required></label>
 <button type="submit">Anmelden</button>
-</form></section>
+</form><form id="password-reset" style="margin-top:16px"><label>Passwort vergessen?<input name="email" type="email" placeholder="E-Mail-Adresse" autocomplete="email" required></label><button type="submit">Reset-Link senden</button></form></section>
 <section aria-labelledby="register-heading"><h2 id="register-heading">Konto erstellen</h2>
 <form id="register">
 <label>Spielername<input name="name" autocomplete="nickname" required></label>
@@ -45,9 +45,10 @@
 <button type="submit">Registrieren</button>
 </form></section>
 </div>
+<section id="password-recovery" hidden><h2>Neues Passwort festlegen</h2><form id="password-update"><label>Neues Passwort<input name="password" type="password" minlength="12" autocomplete="new-password" required></label><button>Passwort ändern</button></form></section>
 <div id="dashboard" hidden>
 <section><h2 id="hello"></h2><p id="plan"></p><button id="logout" type="button">Abmelden</button></section>
-<section><h2>Meine Gruppen</h2><div id="groups"></div></section>
+<section><h2>Datenschutz &amp; Sicherheit</h2><p>Du kannst deine gespeicherten Profildaten exportieren oder dein Konto dauerhaft löschen. Die Kontolöschung kann nicht rückgängig gemacht werden.</p><div class="work-buttons"><button id="export-data" type="button">Daten exportieren</button><button id="delete-account" type="button">Konto löschen</button></div></section><section><h2>Meine Gruppen</h2><div id="groups"></div></section>
 <section><h2>Gruppe erstellen</h2><p>Nur mit Premium-Mitgliedschaft.</p><form id="create">
 <label>Gruppenname<input name="name" minlength="3" required></label>
 <button id="createBtn" type="submit">Gruppe erstellen</button>
@@ -56,5 +57,5 @@
 <form id="join"><label>Einladungscode<input name="code" autocomplete="off" required></label><button type="submit">Beitreten</button></form>
 </section></div>
 </main>
-<script type="module" src="/account.js"></script>
+<script type="module" src="/account.js?v=security-20261105"></script>
 </body></html>

@@ -10,6 +10,7 @@ export function rateLimit(key,limit=20,windowMs=900000,now=Date.now()){
 }
 export const safeError=error=>{
   const message=String(error?.message||error||'');
+  if(message.includes('Zu viele Anfragen'))return {status:429,error:'Zu viele Anfragen. Bitte später erneut versuchen.'};
   if(message.includes('23505'))return {status:409,error:'Diese Rolle ist bereits vergeben.'};
   if(message.startsWith('Database error')||message.includes('Server-Konfiguration'))return {status:503,error:'Dienst vorübergehend nicht verfügbar.'};
   if(/Zugriff verweigert/i.test(message))return {status:403,error:'Zugriff verweigert.'};
