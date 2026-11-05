@@ -165,7 +165,9 @@ if (q.has('home')) {
 let creds = JSON.parse(localStorage.getItem('rw_credentials') || 'null');
 let room = null, page = 'home', busy = false, view = 'play', audio = true;
 let lastVersion = -1;
+let lastPlayersSignature = '';
 let polling;
+let refreshInFlight = false;
 
 const store = () => {
   if (creds)
@@ -245,6 +247,7 @@ function roleName(r) {
 
 function startPoll() {
   clearInterval(polling);
+  page = 'room';
   refresh();
 
   polling = setInterval(() => {
@@ -254,22 +257,29 @@ function startPoll() {
 }
 
 async function refresh(silent = false) {
-  if (!creds)
-    return;
-
+  if (!creds || refreshInFlight) return;
+  refreshInFlight = true;
   try {
     const r = await api('state');
+    if (!creds || creds.code !== r.code) return;
+    const signature = JSON.stringify(r.players.map(p => [p.id,p.role,p.name]).sort((a,b)=>a[1].localeCompare(b[1])));
+    const changed = !room || r.version !== lastVersion || signature !== lastPlayersSignature;
     room = r;
     document.body.dataset.theme = r.theme;
-
-    if (!silent || r.version !== lastVersion) {
+    if (!silent || changed) {
       lastVersion = r.version;
+      lastPlayersSignature = signature;
       render();
     }
   } catch (e) {
-    if (!silent)
-      alertMsg(e.message, true);
-  }
+    if (!silent) alertMsg(e.message, true);
+    else if (/Zugriff verweigert|nicht gefunden|abgelaufen/i.test(e.message || '')) {
+      clearInterval(polling);
+      creds = null; room = null; lastVersion = -1;
+      store(); page = 'home'; render();
+      alertMsg('Die Sitzung ist nicht mehr verfügbar. Bitte erneut beitreten.', true);
+    }
+  } finally {refreshInFlight = false;}
 }
 
 async function send(action) {
@@ -286,6 +296,7 @@ async function send(action) {
     });
 
     lastVersion = room.version;
+    lastPlayersSignature = JSON.stringify(room.players.map(p=>[p.id,p.role,p.name]).sort((a,b)=>a[1].localeCompare(b[1])));
     render();
     const ev = room.data.events?.[0];
 
@@ -350,7 +361,7 @@ function entry() {
 }
 
 function roomHeader() {
-  return `<div class="room-head"><div><div class="eyebrow">${E(room.title)} · ${room.code}</div><h1>${room.phase === 'lobby' ? 'Die Abenteurer versammeln sich' : room.puzzle==='custom'?E(room.data.custom?.title||'Eigenes Rätsel'):PUZZLES.find(p => p[0] === room.puzzle)?.[1]}</h1><p>Angemeldet als <b>${E(room.you.name)}</b> (${roleName(room.you.role)})</p></div><div class="code-card"><small>SITZUNGSCODE</small><strong>${room.code}</strong><button class="btn small" data-action="copy-room">Code kopieren</button></div></div>${tabs()}`;
+  return `<div class="room-head"><div><div class="eyebrow">${E(room.title)} · ${room.code}</div><h1>${room.phase === 'lobby' ? 'Die Abenteurer versammeln sich' : room.puzzle==='custom'?E(room.data.custom?.title||'Eigenes Rätsel'):PUZZLES.find(p => p[0] === room.puzzle)?.[1]}</h1><p>Angemeldet als <b>${E(room.you.name)}</b> (${roleName(room.you.role)})</p></div><div class="code-card"><small>SITZUNGSCODE</small><strong>${room.code}</strong><button class="btn small" data-action="copy-room">Code kopieren</button></div></div>${(room.data?.events||[]).filter(e=>e.type==='hint').slice(0,4).length?'<section class="wide-card session-hints" aria-label="Hinweise vom Dungeon Master"><h3>Hinweise vom Dungeon Master</h3>'+(room.data.events||[]).filter(e=>e.type==='hint').slice(0,4).map(e=>'<p class="session-hint">'+E(e.message)+'</p>').join('')+'</section>':''}${tabs()}`;
 }
 
 function playersPanel() {
@@ -398,7 +409,7 @@ function puzzle() {
 
   if (p === 'levers') inner = `<div class="clue" style="font-size:15px">At the second lever speaking of color could be a lie.<br>A primary first, the mother of dye.<br>The last lever pulled is the color of sky.<br>After the second will buzz like a fly.<br>To find the fourth find the King, but no small fry.</div><div class="lever-grid">${['Schwarz', 'Gelb', 'Blau', 'Grün', 'Rot', 'Rosa'].map(
   (c, i) => `<button class="lever ${steps.includes(String(i)) ? 'on' : ''}" data-step="${i}" ${steps.includes(String(i)) ? 'disabled' : ''}><div class="levercircle" style="background:${['#25262a', '#f0c652', '#4679c3', '#5d9a6c', '#ca5349', '#d58ab8'][i]}"></div>${c}</button>`
-).join('')}</div><p>${steps.length} von 6 Hebeln gezogen. Nach sechs Hebeln wird die Reihenfolge geprüft.</p>${dm ? '<small>DM-Lösung: Rot → Schwarz → Gelb → Rosa → Grün → Blau</small>' : ''}`;
+).join('')}</div><p>${steps.length} von 6 Hebeln gezogen. Nach sechs Hebeln wird die Reihenfolge geprüft.</p>${canPlay&&!solved?'<button class="btn small" data-action="reset-steps">Hebel zurücksetzen</button>':''}${dm ? '<small>DM-Lösung: Rot → Schwarz → Gelb → Rosa → Grün → Blau</small>' : ''}`;
 
   if (p === 'compass') inner = `<div class="clue" style="font-size:15px">Vor langer Zeit lebte König Friedrich <b>verzweifelt</b> im Westen. Er vermisste die <b>Einsamkeit</b> im Norden. „Dass ich nicht <b>erfrier</b>“, schrieb sein Vertrauter. Schon <b>dreist</b> ging er nach Süden. Der <b>Sechste</b> König wählte Nordwesten und träumte mit einem <b>Fünkchen</b> Hoffnung vom Osten.</div><p>Tippe die sechs Himmelsrichtungen in der richtigen Reihenfolge an.</p><div class="compass-grid">${[
   ['NW', '↖'],
@@ -708,6 +719,7 @@ document.addEventListener('click', async e => {
     } else if (d.action === 'enter') await send({
       type: 'enter'
     });
+    else if (d.action === 'reset-steps') await send({type:'reset-steps'});
     else if (d.action === 'reset' && confirm('Das aktuelle Rätsel zurücksetzen?')) await send({
       type: 'reset'
     });
@@ -728,6 +740,8 @@ if (location.hash.startsWith('#puzzle-')) {
 
 render();
 refreshAccount();
+// Returning players stay in their live room, including after a page reload.
+if (creds?.code && creds?.token) startPoll();
 
 // Keep section navigation usable from a puzzle detail without resetting a live room.
 document.addEventListener('click', event => {

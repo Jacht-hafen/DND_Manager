@@ -1,8 +1,13 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 const db = createClient('https://zxzrtwfzouhbfdzextxo.supabase.co', 'sb_publishable_ql4BxoH-no03FyVc_g-sGg_O9zChjGS'), $ = id => document.getElementById(id);
 const msg = s => $('msg').textContent = s;
+let accountRefreshing=false;
+let registerBusy=false;
 
 async function refresh() {
+  if(accountRefreshing)return;
+  accountRefreshing=true;
+  try {
   const {
     data: {
       user
@@ -35,15 +40,33 @@ async function refresh() {
     return;
   }
 
-  const {
-    data: gs
-  } = await db.from('rw_groups').select('name,invite_code').in('id', ids);
-
+  const [{data:gs,error:groupsError},{data:members,error:membersError}] = await Promise.all([
+    db.from('rw_groups').select('id,name,invite_code').in('id',ids),
+    db.rpc('rw_group_member_overview')
+  ]);
+  if(groupsError)throw groupsError;
+  if(membersError)throw membersError;
   for (const g of gs || []) {
-    const p = document.createElement('p');
-    p.textContent = g.name + ' – Einladungscode: ' + g.invite_code;
-    $('groups').append(p);
+    const section=document.createElement('section');
+    section.className='group-entry';
+    const title=document.createElement('h3');
+    title.textContent=g.name;
+    const invite=document.createElement('p');
+    invite.textContent='Einladungscode: '+g.invite_code;
+    const groupMembers=(members||[]).filter(m=>m.group_id===g.id);
+    const subtitle=document.createElement('p');
+    subtitle.textContent='Mitglieder ('+groupMembers.length+')';
+    const list=document.createElement('ul');
+    for(const m of groupMembers){
+      const item=document.createElement('li');
+      item.textContent=m.display_name+(m.is_owner?' (Gruppenleiter)':'');
+      list.append(item);
+    }
+    section.append(title,invite,subtitle,list);
+    $('groups').append(section);
   }
+  } catch(error){console.error('Account update:',error);msg('Gruppendaten konnten nicht aktualisiert werden.');}
+  finally{accountRefreshing=false;}
 }
 
 $('login').onsubmit = async e => {
@@ -63,26 +86,35 @@ $('login').onsubmit = async e => {
 
 $('register').onsubmit = async e => {
   e.preventDefault();
-  const f = new FormData(e.target);
-
-  const {
-    data,
-    error
-  } = await db.auth.signUp({
-    email: f.get('email'),
-    password: f.get('password'),
-
-    options: {
-      data: {
-        display_name: f.get('name')
-      },
-
-      emailRedirectTo: location.origin + '/account.html'
+  if(registerBusy)return;
+  registerBusy=true;
+  const button=e.target.querySelector('button[type="submit"]');
+  if(button)button.disabled=true;
+  const f=new FormData(e.target);
+  try {
+    const {data,error}=await db.auth.signUp({
+      email:String(f.get('email')||'').trim(),
+      password:String(f.get('password')||''),
+      options:{
+        data:{display_name:String(f.get('name')||'').trim()},
+        emailRedirectTo:location.origin+'/account.html'
+      }
+    });
+    if(error){
+      const {data:{user}}=await db.auth.getUser();
+      msg(user?'Dein Konto ist bereits angemeldet.':error.message);
+      if(user)await refresh();
+      return;
     }
-  });
-
-  msg(error?.message || (data.session ? 'Registriert' : 'Bitte bestätige deine E-Mail'));
-  await refresh();
+    msg(data.session?'Konto erfolgreich erstellt und angemeldet.':'Registrierung angenommen. Bitte prüfe deine E-Mail zur Bestätigung. Falls du bereits registriert bist, melde dich an.');
+    if(data.session)await refresh();
+  } catch(error) {
+    msg('Registrierung konnte nicht abgeschlossen werden. Bitte prüfe, ob dein Konto bereits existiert, und versuche gegebenenfalls die Anmeldung.');
+    console.error('Registration error:',error);
+  } finally {
+    registerBusy=false;
+    if(button)button.disabled=false;
+  }
 };
 
 $('logout').onclick = async () => {
@@ -156,3 +188,7 @@ $('delete-account').onclick=async()=>{
 };
 db.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY')$('password-recovery').hidden=false;setTimeout(refresh,0)});
 refresh();
+
+// Update member lists in open group pages without a manual reload.
+setInterval(()=>{if(document.visibilityState==='visible'&&!$('dashboard').hidden)refresh()},5000);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh()});
