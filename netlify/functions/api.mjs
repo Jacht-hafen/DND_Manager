@@ -1,5 +1,6 @@
 import {randomBytes,createHash,timingSafeEqual,scryptSync} from 'node:crypto';
 import {applyAction,defaultData} from './engine.mjs';
+import {validRoomCode,validDisplayName,rateLimit,safeError} from './security.mjs';
 const json=(status,data)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const passwordHash=p=>{const salt=randomBytes(16).toString('hex');return salt+':'+scryptSync(p,salt,64).toString('hex')};
@@ -17,11 +18,16 @@ async function db(path,{method='GET',body,prefer}={}){
 async function getRoom(code){const x=await db(`rw_rooms?code=eq.${encodeURIComponent(code)}&select=*`);const room=x[0];if(!room||new Date(room.expires_at)<new Date())throw Error('Sitzung nicht gefunden oder abgelaufen');return room;}
 async function authenticate(room,secret){if(!secret||typeof secret!=='string'||secret.length>200)throw Error('Zugriff verweigert');const h=hash(secret);if(equal(h,room.owner_hash))return {id:'dm',name:'Dungeon Master',role:'dm'};const ps=await db(`rw_players?room_id=eq.${room.id}&token_hash=eq.${h}&select=id,name,role`);if(!ps.length)throw Error('Zugriff verweigert');return ps[0];}
 const cleanRoom=(room,players,actor)=>({code:room.code,title:room.title,theme:room.theme,puzzle:room.puzzle,phase:room.phase,version:room.version,expiresAt:room.expires_at,players:players.map(x=>({id:x.id,name:x.name,role:x.role})),you:{id:actor.id,role:actor.role,name:actor.name},data:room.data});
-const validCode=s=>typeof s==='string'&&/^[A-Z2-9]{6}$/.test(s);
+const validCode=validRoomCode;
 async function handle(req){
  const url=new URL(req.url);const endpoint=url.pathname.split('/').pop();const method=req.method;
+ if(!(['create','check-code','check-password','join','state','action'].includes(endpoint)))return json(404,{error:'Endpunkt unbekannt'});
+ if(!((method==='GET'&&endpoint==='state')||(method==='POST'&&endpoint!=='state')))return json(405,{error:'Methode nicht erlaubt'});
+ const origin=req.headers.get('origin');if(origin&&origin!==url.origin&&!String(process.env.ALLOWED_ORIGINS||'').split(',').map(s=>s.trim()).includes(origin))return json(403,{error:'Unerlaubte Herkunft'});
+ const ip=(req.headers.get('x-real-ip')||req.headers.get('x-forwarded-for')||'unknown').split(',')[0].trim().slice(0,64);
+ if(rateLimit('api:'+ip+':'+endpoint,endpoint==='check-password'?18:endpoint==='create'?12:90))return json(429,{error:'Zu viele Anfragen. Bitte später erneut versuchen.'});
  if(method==='OPTIONS')return json(200,{});
- let b={};if(method==='POST'){const raw=await req.text();if(raw.length>4096)return json(413,{error:'Anfrage zu groß'});try{b=JSON.parse(raw||'{}')}catch{return json(400,{error:'Ungültiges JSON'})}}
+ let b={};if(method==='POST'){const contentType=req.headers.get('content-type')||'';if(!contentType.toLowerCase().includes('application/json'))return json(415,{error:'JSON erwartet'});const raw=await req.text();if(raw.length>4096)return json(413,{error:'Anfrage zu groß'});try{b=JSON.parse(raw||'{}');if(!b||typeof b!=='object'||Array.isArray(b))return json(400,{error:'Ungültige Anfrage'})}catch{return json(400,{error:'Ungültiges JSON'})}}
  if(endpoint==='create'&&method==='POST'){
   const accessToken=b.access_token;
   if(typeof accessToken!=='string'||accessToken.length<20)return json(401,{error:'Bitte anmelden, um eine Spielsitzung zu erstellen.'});
@@ -33,7 +39,7 @@ async function handle(req){
   const authUser=await authResponse.json();
   const profiles=await db('rw_profiles?user_id=eq.'+encodeURIComponent(authUser.id)+'&select=is_premium');
   if(profiles[0]?.is_premium!==true)return json(403,{error:'Nur Premium-Mitglieder dürfen Spiele erstellen.'});
-  const pass=String(b.password||'');if(pass.length<8||pass.length>100)return json(400,{error:'Das Raum-Passwort muss 8 bis 100 Zeichen lang sein.'});
+  const pass=b.password;if(typeof pass!=='string'||pass.length<8||pass.length>100)return json(400,{error:'Das Raum-Passwort muss 8 bis 100 Zeichen lang sein.'});
   const owner=token(),title=String(b.title||'Neue Kampagne').trim().slice(0,70)||'Neue Kampagne';
   for(let n=0;n<5;n++){try{const c=code();await db('rw_rooms',{method:'POST',body:{code:c,owner_hash:hash(owner),title,password_hash:passwordHash(pass),data:defaultData()},prefer:'return=representation'});return json(201,{code:c,token:owner});}catch(e){if(!String(e).includes('23505'))throw e}}
   throw Error('Konnte keinen Sitzungscode erstellen');
@@ -44,13 +50,15 @@ async function handle(req){
  }
  if(endpoint==='check-password'&&method==='POST'){
   const c=String(b.code||'').trim().toUpperCase();if(!validCode(c))return json(400,{error:'Ungültiger Sitzungscode'});
+  if(rateLimit('room-pass:'+c,50))return json(429,{error:'Zu viele Passwortversuche. Bitte später erneut versuchen.'});
   const room=await getRoom(c);if(!checkPassword(b.password,room.password_hash))return json(403,{error:'Falsches Raum-Passwort'});
   return json(200,{valid:true,title:room.title});
  }
  if(endpoint==='join'&&method==='POST'){
   const c=String(b.code||'').toUpperCase();if(!validCode(c))return json(400,{error:'Ungültiger Sitzungscode'});
+  if(rateLimit('room-join:'+c,65))return json(429,{error:'Zu viele Beitrittsversuche. Bitte später erneut versuchen.'});
   const room=await getRoom(c);if(!checkPassword(b.password,room.password_hash))return json(403,{error:'Falsches Raum-Passwort'});const name=String(b.name||'').trim().slice(0,32),role=String(b.role||'');
-  if(name.length<2||!/^[abc]$/.test(role))return json(400,{error:'Name (min. 2 Zeichen) und Rolle A/B/C wählen'});
+  if(!validDisplayName(name)||!/^[abc]$/.test(role))return json(400,{error:'Name (min. 2 Zeichen) und Rolle A/B/C wählen'});
   const players=await db(`rw_players?room_id=eq.${room.id}&select=id,role,name`);
   if(players.some(p=>p.role===role))return json(409,{error:`Rolle ${role.toUpperCase()} ist bereits vergeben`});
   const secret=token();await db('rw_players',{method:'POST',body:{room_id:room.id,token_hash:hash(secret),name,role},prefer:'return=representation'});
@@ -63,7 +71,7 @@ async function handle(req){
   return json(200,cleanRoom(room,players,actor));
  }
  if(endpoint==='action'&&method==='POST'){
-  if(!b.action||typeof b.action!=='object')return json(400,{error:'Aktion fehlt'});
+  if(!b.action||typeof b.action!=='object'||Array.isArray(b.action)||typeof b.action.type!=='string'||b.action.type.length>20)return json(400,{error:'Aktion fehlt'});
   const players=await db(`rw_players?room_id=eq.${room.id}&select=id,name,role`);
   for(let i=0;i<7;i++){
    const current=i===0?room:await getRoom(c);
@@ -76,5 +84,5 @@ async function handle(req){
  }
  return json(404,{error:'Endpunkt unbekannt'});
 }
-export default async(req)=>{try{return await handle(req)}catch(e){const msg=String(e?.message||e);const publicMessage=msg.includes('23505')?'Diese Rolle wurde gerade von einer anderen Person belegt.':msg.startsWith('Database error')?'Datenbankfehler. Bitte Konfiguration und SQL-Schema prüfen.':msg;return json(/nicht gefunden|abgelaufen/i.test(msg)?404:/Zugriff verweigert/i.test(msg)?403:400,{error:publicMessage})}};
+export default async(req)=>{try{return await handle(req)}catch(e){console.error('Runenwerk API:',String(e?.message||e).slice(0,250));const response=safeError(e);return json(response.status,{error:response.error})}};
 export const config={path:'/api/:endpoint'};
