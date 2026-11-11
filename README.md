@@ -37,7 +37,7 @@ Theme-Auswahl und einem synthetischen Soundboard.
 
 ## Lokal starten
 
-Node.js >= 20 installieren. In diesem Ordner:
+Node.js >= 22 installieren. In diesem Ordner:
 
 ```bash
 npm install
@@ -51,7 +51,7 @@ Ein einfacher statischer Server stellt nur das Design bereit, **keine** Online-A
 
 ## Architektur / Spielregeln
 
-- HTML, CSS und Vanilla JavaScript: keine Build-Abhängigkeit des Frontends.
+- HTML, CSS und Vanilla JavaScript; die verwendeten Fluent-Web-Components werden lokal gebündelt.
 - Netlify Functions: alle sensiblen Datenbank-Anfragen serverseitig, Tokens in SHA-256 gehasht.
 - Supabase PostgreSQL: Speicherung über alle Geräte, Konfliktkontrolle mit Versionsprüfung.
 - Supabase RLS aktiviert, keine öffentlichen SELECT/UPDATE-Policies.
@@ -78,6 +78,21 @@ Diese Anwendung ist eine funktionale Multiplayer-MVP, keine fertig abgesicherte 
 - Deployment muss mit echten Supabase-Keys konfiguriert werden, sonst funktionieren Erstellen/Beitreten nicht.
 
 ## Entwicklung und Tests
+
+Fluent UI 3.2.1 ergänzt Standardaktionen, Status-Badges, Hinweise und Ladeanzeigen.
+Formularfelder und Submit-Buttons bleiben native HTML-Elemente, ebenso die speziellen
+Rätselbedienelemente. Farben und Typografie werden in `ui/fluent.js` auf Runenwerk abgestimmt;
+die begleitenden Styles stehen in `public/fluent-ui.css`.
+
+Nach Änderungen an `ui/fluent.js` das lokale Bundle neu erstellen:
+
+```bash
+npm run build:ui
+```
+
+`public/fluent-ui.js` ist als erzeugte Datei eingecheckt, damit der bestehende statische
+Netlify-Deploy ohne zusätzlichen Build-Schritt weiter funktioniert. Es werden nur die
+verwendeten Komponenten gebündelt; ein zusätzliches Fluent-CDN ist nicht erforderlich.
 
 ```bash
 npm run check

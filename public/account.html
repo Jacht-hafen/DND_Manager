@@ -4,32 +4,16 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#f7f5f1">
 <title>Runenwerk – Konto und Gruppen</title>
-<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/ui-overhaul.css?v=2">
-<style>
-.account-wrap{width:min(100% - 36px,900px);margin:auto;padding:0 0 80px}
-.account-wrap .top{margin-bottom:34px}
-.account-wrap h1{font:700 34px/1.2 Arial,sans-serif;margin:0 0 12px}
-.account-wrap h2{font:700 22px/1.25 Arial,sans-serif;margin:0 0 16px}
-.account-wrap section{background:#fff;border:1px solid #d9d4cc;border-radius:3px;padding:24px;margin:20px 0}
-.account-wrap form{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
-.account-wrap label{display:flex;flex-direction:column;gap:7px;font-size:14px;font-weight:600;color:#383532;flex:1 1 180px}
-.account-wrap input{display:block;min-height:43px;width:100%;padding:10px 12px;margin:0}
-.account-wrap button{min-height:43px;border:1px solid #7c2826;background:#7c2826;color:#fff;border-radius:3px;padding:10px 16px;font-weight:600;cursor:pointer}
-.account-wrap button:hover{background:#63201f}.account-wrap button:disabled{opacity:.55}
-.account-wrap #msg:not(:empty){padding:12px 15px;background:#eee9e2;border-left:3px solid #7c2826;color:#342f2a}
-.account-wrap #groups p{border-bottom:1px solid #e8e3dc;padding-bottom:12px}
-.account-wrap #dashboard[hidden],.account-wrap #auth[hidden]{display:none}
-.account-intro{color:#5c5954;margin:0 0 20px}
-@media(max-width:600px){.account-wrap form{flex-direction:column;align-items:stretch}.account-wrap label,.account-wrap button{width:100%;flex:auto}.account-wrap section{padding:18px}}
-</style>
-<link rel="stylesheet" href="/editorial.css?v=20261103-1">
-</head>
+
+
+
+<link rel="stylesheet" href="/styles.css?v=20261111-fluent-1"><link rel="stylesheet" href="/fluent-ui.css?v=20261111-1"></head>
 <body>
 <main class="account-wrap">
 <header class="top"><a href="/" class="brand">RUNENWERK</a><nav class="topright" aria-label="Hauptnavigation"><a class="nav-link" href="/">Rätselbibliothek</a></nav></header>
 <h1>Konto und Gruppen</h1>
 <p class="account-intro">Melde dich an, verwalte deine Gruppen oder tritt einer Gruppe mit Einladungscode bei.</p>
-<p id="msg" role="status" aria-live="polite"></p>
+<div id="msg"></div>
 <div id="auth">
 <section aria-labelledby="login-heading"><h2 id="login-heading">Anmelden</h2>
 <form id="login">
@@ -46,7 +30,7 @@
 </form></section>
 </div>
 <div id="dashboard" hidden>
-<section><h2 id="hello"></h2><p id="plan"></p><button id="logout" type="button">Abmelden</button></section>
+<section><h2 id="hello"></h2><p id="plan"></p><fluent-button id="logout" class="ui-action" appearance="secondary" type="button">Abmelden</fluent-button></section>
 <section><h2>Meine Gruppen</h2><div id="groups"></div></section>
 <section><h2>Gruppe erstellen</h2><p>Nur mit Premium-Mitgliedschaft.</p><form id="create">
 <label>Gruppenname<input name="name" minlength="3" required></label>
@@ -56,5 +40,5 @@
 <form id="join"><label>Einladungscode<input name="code" autocomplete="off" required></label><button type="submit">Beitreten</button></form>
 </section></div>
 </main>
-<script type="module" src="/account.js"></script>
+<script type="module" src="/account.js?v=20261111-fluent-1"></script>
 </body></html>

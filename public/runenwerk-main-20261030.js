@@ -1,3 +1,5 @@
+import { setFormBusy } from './fluent-ui.js';
+
 const LIBRARY = {
   'runes': {
     'duration': '15–25 Minuten',
@@ -214,8 +216,10 @@ async function api(endpoint, payload) {
 }
 
 function alertMsg(msg, error = false) {
-  const e = document.createElement('div');
-  e.className = 'toast ' + (error ? 'err' : '');
+  const e = document.createElement('fluent-message-bar');
+  e.className = 'ui-toast';
+  e.setAttribute('intent', error ? 'error' : 'info');
+  e.setAttribute('layout', 'multiline');
   e.setAttribute('role', error ? 'alert' : 'status');
   e.textContent = msg;
   document.body.append(e);
@@ -296,14 +300,14 @@ function tile(title, desc, content = '') {
 }
 
 function top() {
-  return `<header class="top" role="banner"><a href="/" class="brand" aria-label="Runenwerk – zur Startseite">RUNENWERK</a><nav class="topright" aria-label="Hauptnavigation">${room ? `<span class="pill">● ${room.phase === 'playing' ? 'Sitzung läuft' : room.phase === 'paused' ? 'Pausiert' : 'Warteraum'}</span><span class="avatar">${room.you.role.toUpperCase()}</span>` : '<a class="nav-link" href="/#bibliothek">Rätselbibliothek</a><a class="nav-link" href="/#beitreten">Spiel beitreten</a>'}<a href="/account.html" class="nav-account">Konto &amp; Gruppen</a></nav></header>`;
+  return `<header class="top" role="banner"><a href="/" class="brand" aria-label="Runenwerk – zur Startseite">RUNENWERK</a><nav class="topright" aria-label="Hauptnavigation">${room ? `<fluent-badge appearance="tint" shape="rounded" color="${room.phase === 'playing' ? 'success' : room.phase === 'paused' ? 'warning' : 'subtle'}">${room.phase === 'playing' ? 'Sitzung läuft' : room.phase === 'paused' ? 'Pausiert' : 'Warteraum'}</fluent-badge><span class="avatar">${room.you.role.toUpperCase()}</span>` : '<a class="nav-link" href="/#bibliothek">Rätselbibliothek</a><a class="nav-link" href="/#beitreten">Spiel beitreten</a>'}<a href="/account.html" class="nav-account">Konto &amp; Gruppen</a></nav></header>`;
 }
 
 function tabs() {
   if (!room)
     return '';
 
-  return `<div class="nav-row"><button class="btn small ${view === 'play' ? 'primary' : ''}" data-view="play">⚔ Rätsel</button><button class="btn small ${view === 'players' ? 'primary' : ''}" data-view="players">♙ Mitspieler</button><button class="btn small ${view === 'sounds' ? 'primary' : ''}" data-view="sounds">♫ Soundboard</button><button class="btn small ${view === 'settings' ? 'primary' : ''}" data-view="settings">⚙ Einstellungen</button><button class="btn small ghost" data-action="leave">Verlassen</button></div>`;
+  return `<nav class="nav-row" aria-label="Spielsitzung">${[['play', 'Rätsel'], ['players', 'Mitspieler'], ['sounds', 'Soundboard'], ['settings', 'Einstellungen']].map(([id, label]) => `<fluent-button class="ui-action" type="button" appearance="${view === id ? 'primary' : 'subtle'}" ${view === id ? 'aria-current="page"' : ''} data-view="${id}">${label}</fluent-button>`).join('')}<fluent-button class="ui-action ui-leave" type="button" appearance="subtle" data-action="leave">Verlassen</fluent-button></nav>`;
 }
 
 function joinForm() {
@@ -311,16 +315,16 @@ function joinForm() {
     return `<form id="join-code-form" class="code-form" aria-label="Schritt 1 von 3: Sitzungscode"><label>Sitzungscode<input class="input" name="code" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABC123" value="${E(joinCode || q.get('join') || '')}" required></label><button class="btn primary">Weiter</button></form>`;
 
   if (joinStage === 2)
-    return `<p><strong>${E(joinTitle)}</strong> · ${E(joinCode)}</p><form id="join-password-form" class="code-form" aria-label="Schritt 2 von 3: Raum-Passwort"><label>Raum-Passwort<input class="input" type="password" name="password" required></label><button class="btn primary">Weiter</button><button type="button" class="btn" data-join-back="1">Anderer Code</button></form>`;
+    return `<p><strong>${E(joinTitle)}</strong> · ${E(joinCode)}</p><form id="join-password-form" class="code-form" aria-label="Schritt 2 von 3: Raum-Passwort"><label>Raum-Passwort<input class="input" type="password" name="password" required></label><button class="btn primary">Weiter</button><fluent-button type="button" appearance="secondary" class="ui-action" data-join-back="1">Anderer Code</fluent-button></form>`;
 
-  return `<p><strong>${E(joinTitle)}</strong> · Zugang bestätigt</p><form id="join-player-form" class="code-form" aria-label="Schritt 3 von 3: Spielerinformationen"><label>Dein Name<input class="input" name="name" maxlength="32" minlength="2" value="${E(currentUser?.user_metadata?.display_name || '')}" required></label><label>Rolle<select class="input" name="role"><option value="a">Spieler A</option><option value="b">Spieler B</option><option value="c">Spieler C</option></select></label><button class="btn primary">Spiel beitreten</button><button type="button" class="btn" data-join-back="2">Zurück</button></form>`;
+  return `<p><strong>${E(joinTitle)}</strong> · Zugang bestätigt</p><form id="join-player-form" class="code-form" aria-label="Schritt 3 von 3: Spielerinformationen"><label>Dein Name<input class="input" name="name" maxlength="32" minlength="2" value="${E(currentUser?.user_metadata?.display_name || '')}" required></label><label>Rolle<select class="input" name="role"><option value="a">Spieler A</option><option value="b">Spieler B</option><option value="c">Spieler C</option></select></label><button class="btn primary">Spiel beitreten</button><fluent-button type="button" appearance="secondary" class="ui-action" data-join-back="2">Zurück</fluent-button></form>`;
 }
 
 function home() {
-  return `<section class="hero"><h1>Rätsel für deine D&D-Kampagne.</h1><p>Entdecke kooperative Fantasy-Rätsel. Tritt mit einem Einladungscode einer Live-Runde bei oder erstelle als Premium-Mitglied eine eigene Spielsitzung.</p><div class="actions">${isPremium ? '<button class="btn primary" data-go="create">Live-Spiel erstellen</button>' : currentUser ? '<a class="btn" href="/account.html">Premium erforderlich, um Spiele zu erstellen</a>' : '<a class="btn" href="/account.html">Anmelden für Premium-Spiele</a>'}${creds ? '<button class="btn" data-action="resume">Vorheriges Spiel fortsetzen</button>' : ''}</div></section>
-<section class="wide-card section join-section join-stage-${joinStage}" id="beitreten" aria-labelledby="join-title"><div class="join-intro"><h2 id="join-title">Einem Spiel beitreten</h2><p>Mit einem Einladungscode kannst du einer bestehenden Spielrunde beitreten.</p></div><div class="join-content">${joinForm()}</div><p class="join-progress" aria-live="polite"><span>Schritt ${joinStage} von 3</span><span>${joinStage === 1 ? 'Raum-Passwort folgt' : joinStage === 2 ? 'Raum-Passwort eingeben' : 'Name und Rolle wählen'}</span></p></section>
+  return `<section class="hero"><h1>Rätsel für deine D&D-Kampagne.</h1><p>Entdecke kooperative Fantasy-Rätsel. Tritt mit einem Einladungscode einer Live-Runde bei oder erstelle als Premium-Mitglied eine eigene Spielsitzung.</p><div class="actions">${isPremium ? '<fluent-button type="button" appearance="primary" class="ui-action" data-go="create">Live-Spiel erstellen</fluent-button>' : currentUser ? '<a class="btn" href="/account.html">Premium erforderlich, um Spiele zu erstellen</a>' : '<a class="btn" href="/account.html">Anmelden für Premium-Spiele</a>'}${creds ? '<fluent-button type="button" appearance="secondary" class="ui-action" data-action="resume">Vorheriges Spiel fortsetzen</fluent-button>' : ''}</div></section>
+<section class="wide-card section join-section join-stage-${joinStage}" id="beitreten" aria-labelledby="join-title"><div class="join-intro"><h2 id="join-title">Einem Spiel beitreten</h2><p>Mit einem Einladungscode kannst du einer bestehenden Spielrunde beitreten.</p></div><div class="join-content">${joinForm()}</div><p class="join-progress" aria-live="polite"><fluent-badge appearance="tint" color="brand" shape="rounded">Schritt ${joinStage} von 3</fluent-badge><span>${joinStage === 1 ? 'Raum-Passwort folgt' : joinStage === 2 ? 'Raum-Passwort eingeben' : 'Name und Rolle wählen'}</span></p></section>
 <section class="section library-section" id="bibliothek" aria-labelledby="library-title"><div class="sectionhead"><h2 id="library-title">Die Rätselbibliothek</h2><small>Acht Rätsel für deine nächste Spielsitzung</small></div><div class="library-list">${PUZZLES.map(
-  p => `<article class="library-row"><span class="library-category">${E(p[2])}</span><div class="library-copy"><h3>${E(p[1])}</h3><p>${E(p[4])}</p></div><span class="library-duration">${E(LIBRARY[p[0]].duration)}</span><span class="library-players">${E(LIBRARY[p[0]].players)} Spieler</span><button class="library-open" data-library="${p[0]}" aria-label="${E(p[1])} – Details öffnen">Details ansehen</button></article>`
+  p => `<article class="library-row"><span class="library-category">${E(p[2])}</span><div class="library-copy"><h3>${E(p[1])}</h3><p>${E(p[4])}</p></div><span class="library-duration">${E(LIBRARY[p[0]].duration)}</span><span class="library-players">${E(LIBRARY[p[0]].players)} Spieler</span><fluent-button type="button" appearance="subtle" class="ui-action ui-library-open" data-library="${p[0]}" aria-label="${E(p[1])} – Details öffnen">Details ansehen</fluent-button></article>`
 ).join('')}</div></section>`;
 }
 
@@ -331,30 +335,30 @@ function libraryDetail() {
     return home();
 
   const d = LIBRARY[p[0]];
-  return `<section class="section library-detail"><button class="btn small ghost" data-library-back="1">← Rätselbibliothek</button><div class="wide-card"><div class="eyebrow">${E(p[2])} · RÄTSEL-STECKBRIEF</div><h1>${E(p[1])}</h1><p>${E(d.description)}</p><div class="library-facts"><span>Dauer: ${E(d.duration)}</span><span>Spieler: ${E(d.players)}</span><span>Schwierigkeit: ${E(d.difficulty)}</span></div><h3>Benötigte Materialien und Vorbereitung</h3><p>${E(d.materials)}</p><h3>Einbau in eine D&D-Kampagne</h3><p>${E(d.campaign)}</p><h3>Hinweise für Dungeon Master</h3><p>${E(d.hint)}</p><p><small>Spieldauer ist eine Schätzung und abhängig von Erfahrung und Gruppengröße.</small></p></div></section>`;
+  return `<section class="section library-detail"><fluent-button type="button" appearance="subtle" class="ui-action ui-back" data-library-back="1">← Rätselbibliothek</fluent-button><div class="wide-card"><div class="eyebrow">${E(p[2])} · RÄTSEL-STECKBRIEF</div><h1>${E(p[1])}</h1><p>${E(d.description)}</p><div class="library-facts"><span>Dauer: ${E(d.duration)}</span><span>Spieler: ${E(d.players)}</span><span class="difficulty-fact">Schwierigkeit: <fluent-badge appearance="tint" color="${d.difficulty === 'Leicht' ? 'success' : d.difficulty === 'Schwer' ? 'warning' : 'informative'}" shape="rounded">${E(d.difficulty)}</fluent-badge></span></div><h3>Benötigte Materialien und Vorbereitung</h3><p>${E(d.materials)}</p><h3>Einbau in eine D&D-Kampagne</h3><p>${E(d.campaign)}</p><h3>Hinweise für Dungeon Master</h3><p>${E(d.hint)}</p><p><small>Spieldauer ist eine Schätzung und abhängig von Erfahrung und Gruppengröße.</small></p></div></section>`;
 }
 
 function entry() {
   if (page === 'join')
-    return `<div class="entry"><h1>Einem Spiel beitreten</h1><div class="wide-card">${joinForm()}</div><button class="btn" data-go="home">Zur Bibliothek</button></div>`;
+    return `<div class="entry"><h1>Einem Spiel beitreten</h1><div class="wide-card">${joinForm()}</div><fluent-button type="button" appearance="secondary" class="ui-action" data-go="home">Zur Bibliothek</fluent-button></div>`;
 
   return `<div class="entry"><h1>Neue Spielsitzung erstellen</h1><p>Lege einen Namen und ein Passwort für deinen Raum fest. Den Sitzungscode erhältst du nach dem Erstellen.</p><form id="entry-form" class="wide-card form-box"><label>Kampagnenname<input class="input" name="title" maxlength="70" value="Die Schatten von Eldoria" required></label><label>Raum-Passwort (mindestens 8 Zeichen)<input class="input" name="password" type="password" minlength="8" maxlength="100" autocomplete="new-password" required></label><button class="btn primary">Raum erstellen</button></form><a class="btn ghost" href="/">Zur Startseite</a></div>`;
 }
 
 function roomHeader() {
-  return `<div class="room-head"><div><div class="eyebrow">${E(room.title)} · ${room.code}</div><h1>${room.phase === 'lobby' ? 'Die Abenteurer versammeln sich' : PUZZLES.find(p => p[0] === room.puzzle)?.[1]}</h1><p>Angemeldet als <b>${E(room.you.name)}</b> (${roleName(room.you.role)})</p></div><div class="code-card"><small>SITZUNGSCODE</small><strong>${room.code}</strong><button class="btn small" data-action="copy-room">Code kopieren</button></div></div>${tabs()}`;
+  return `<div class="room-head"><div><div class="eyebrow">${E(room.title)} · ${room.code}</div><h1>${room.phase === 'lobby' ? 'Die Abenteurer versammeln sich' : PUZZLES.find(p => p[0] === room.puzzle)?.[1]}</h1><p>Angemeldet als <b>${E(room.you.name)}</b> (${roleName(room.you.role)})</p></div><div class="code-card"><small>SITZUNGSCODE</small><strong>${room.code}</strong><fluent-button type="button" appearance="secondary" class="ui-action" data-action="copy-room">Code kopieren</fluent-button></div></div>${tabs()}`;
 }
 
 function playersPanel() {
   return `<div class="sectionhead"><h2>Mitspieler & Einladungen</h2><span class="sectionnote">Rollen werden nur einmal vergeben</span></div><div class="grid2"><div class="wide-card"><h3>Verbunden (${room.players.length})</h3>${['a', 'b', 'c'].map(
   r => `<div class="listrow"><span>${roleName(r)}</span><b>${E(room.players.find(p => p.role === r)?.name || 'Noch frei')}</b></div>`
 ).join('')}<p>Jeder Spieler erhält genau eine Perspektive. Die Live-Ansicht aktualisiert sich automatisch.</p></div><div class="wide-card"><h3>Einladungslinks</h3><p>Schicke einen rollenbezogenen Link an andere Geräte. Der Link allein belegt noch keinen Platz; der Spieler muss beitreten.</p>${['a', 'b', 'c'].map(
-  r => `<div class="listrow"><span>${roleName(r)}</span><button class="btn small" data-copy-role="${r}">Link kopieren</button></div>`
+  r => `<div class="listrow"><span>${roleName(r)}</span><fluent-button type="button" appearance="secondary" class="ui-action" data-copy-role="${r}">Link kopieren</fluent-button></div>`
 ).join('')}<small>Diese Links enthalten keine privaten Raum-Tokens. Die Rolle wird beim Beitritt reserviert.</small></div></div>`;
 }
 
 function dmControls() {
-  return `<div class="wide-card"><div class="sectionhead"><div><h3>Dungeon-Master-Konsole</h3><p>Bestimme, was alle Spieler gerade sehen.</p></div><span class="tag">HOST</span></div><div class="actions"><button class="btn small" data-phase="lobby">Warteraum</button><button class="btn small" data-phase="playing">Starten</button><button class="btn small" data-phase="paused">Pausieren</button><button class="btn small" data-action="reset">↻ Zurücksetzen</button><button class="btn small" data-action="solve">✓ Manuell lösen</button></div><h3 class="section">Rätsel auswählen</h3><div class="puzzle-select">${PUZZLES.map(
+  return `<div class="wide-card"><div class="sectionhead"><div><h3>Dungeon-Master-Konsole</h3><p>Bestimme, was alle Spieler gerade sehen.</p></div><span class="tag">HOST</span></div><div class="actions"><fluent-button type="button" appearance="secondary" class="ui-action" data-phase="lobby">Warteraum</fluent-button><fluent-button type="button" appearance="secondary" class="ui-action" data-phase="playing">Starten</fluent-button><fluent-button type="button" appearance="secondary" class="ui-action" data-phase="paused">Pausieren</fluent-button><fluent-button type="button" appearance="secondary" class="ui-action" data-action="reset">↻ Zurücksetzen</fluent-button><fluent-button type="button" appearance="secondary" class="ui-action" data-action="solve">✓ Manuell lösen</fluent-button></div><h3 class="section">Rätsel auswählen</h3><div class="puzzle-select">${PUZZLES.map(
   p => `<button class="select-tile ${room.puzzle === p[0] ? 'active' : ''}" data-puzzle="${p[0]}"><span>${p[3]}</span>${p[1]}</button>`
 ).join('')}</div></div>`;
 }
@@ -471,7 +475,7 @@ function main() {
   return `<div class="app-container">${top()}${!room ? ['create', 'join'].includes(page) ? entry() : page === 'library-detail' ? libraryDetail() : home() : `${roomHeader()}${view === 'players' ? playersPanel() : view === 'sounds' ? soundboard() : view === 'settings' ? settings() : `${room.you.role === 'dm' ? dmControls() : ''}<div class="section">${room.phase === 'lobby' ? tile(
   'Wartet auf den Dungeon Master',
   'Der DM startet das Rätsel. Lade weitere Mitspieler über den Sitzungscode ein.',
-  `<button class="btn" data-view="players">Mitspieler ansehen</button>`
+  `<fluent-button type="button" appearance="secondary" class="ui-action" data-view="players">Mitspieler ansehen</fluent-button>`
 ) : puzzle()}</div>`}`}</div>`;
 }
 
@@ -519,11 +523,10 @@ document.addEventListener('submit', async e => {
 
   if (['join-code-form', 'join-password-form', 'join-player-form', 'entry-form'].includes(id)) {
     e.preventDefault();
+    if (e.target.getAttribute('aria-busy') === 'true')
+      return;
     const f = Object.fromEntries(new FormData(e.target));
-    const submit = e.target.querySelector('button[type=submit],button:not([type])');
-
-    if (submit)
-      submit.disabled = true;
+    setFormBusy(e.target, true);
 
     try {
       if (id === 'join-code-form') {
@@ -564,9 +567,8 @@ document.addEventListener('submit', async e => {
       }
     } catch (err) {
       alertMsg(err.message, true);
-
-      if (submit)
-        submit.disabled = false;
+    } finally {
+      setFormBusy(e.target, false);
     }
   } else if (id === 'code-form') {
     e.preventDefault();
@@ -579,9 +581,9 @@ document.addEventListener('submit', async e => {
 });
 
 document.addEventListener('click', async e => {
-  const t = e.target.closest('button');
+  const t = e.target.closest('button, fluent-button');
 
-  if (!t)
+  if (!t || t.disabled || t.hasAttribute('disabled'))
     return;
 
   const d = t.dataset;

@@ -1,6 +1,7 @@
+import { showNotice } from './fluent-ui.js';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 const db = createClient('https://zxzrtwfzouhbfdzextxo.supabase.co', 'sb_publishable_ql4BxoH-no03FyVc_g-sGg_O9zChjGS'), $ = id => document.getElementById(id);
-const msg = s => $('msg').textContent = s;
+const msg = (s, error = false) => showNotice($('msg'), s, error);
 
 async function refresh() {
   const {
@@ -57,7 +58,7 @@ $('login').onsubmit = async e => {
     password: f.get('password')
   });
 
-  msg(error?.message || 'Angemeldet');
+  msg(error?.message || 'Angemeldet', !!error);
   await refresh();
 };
 
@@ -81,7 +82,7 @@ $('register').onsubmit = async e => {
     }
   });
 
-  msg(error?.message || (data.session ? 'Registriert' : 'Bitte bestätige deine E-Mail'));
+  msg(error?.message || (data.session ? 'Registriert' : 'Bitte bestätige deine E-Mail'), !!error);
   await refresh();
 };
 
@@ -107,7 +108,7 @@ $('create').onsubmit = async e => {
     name: String(f.get('name')).trim()
   });
 
-  msg(error?.message || 'Gruppe erstellt');
+  msg(error?.message || 'Gruppe erstellt', !!error);
   await refresh();
 };
 
@@ -120,7 +121,7 @@ $('join').onsubmit = async e => {
     p_code: String(new FormData(e.target).get('code')).trim().toUpperCase()
   });
 
-  msg(error?.message || 'Beigetreten');
+  msg(error?.message || 'Beigetreten', !!error);
   await refresh();
 };
 

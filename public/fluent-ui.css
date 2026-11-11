@@ -1,0 +1,105 @@
+/* Fluent interactions within Runenwerk's existing reading layout. */
+:root {
+  --rw-control-radius: 6px;
+  --rw-control-border: #c4beb5;
+}
+
+fluent-button.ui-action {
+  min-height: 44px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  white-space: nowrap;
+}
+fluent-button.ui-action::part(content) { gap: 8px; }
+fluent-button.ui-action:focus-visible {
+  outline: 2px solid var(--rw-focus, #185eb8);
+  outline-offset: 3px;
+}
+fluent-button.ui-library-open {
+  grid-area: auto;
+  justify-self: end;
+  color: var(--rw-red);
+}
+fluent-button.ui-back { margin: 0 0 20px -12px; }
+fluent-button.ui-leave { margin-left: auto; }
+fluent-badge { font-family: Arial, Helvetica, sans-serif; vertical-align: middle; }
+.difficulty-fact { display: inline-flex !important; align-items: center; gap: 8px; }
+.nav-row { gap: 6px; padding-bottom: 16px; }
+
+/* Native form controls share the Fluent theme and keep browser form behavior. */
+.btn, .btn.small, .btn.ghost, .btn.primary, .nav-account,
+.account-wrap button, .account-wrap #auth button {
+  min-height: 44px;
+  border-radius: var(--rw-control-radius);
+  font-size: 14px;
+  line-height: 1.4;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.btn, .btn.small {
+  background: #fff;
+  border-color: var(--rw-control-border);
+  color: var(--rw-ink);
+}
+.btn:hover, .btn.small:hover { background: #f0eee8; border-color: #aaa299; }
+.btn.primary, .account-wrap button {
+  background: var(--rw-red);
+  border-color: var(--rw-red);
+  color: #fff;
+}
+.btn.primary:hover, .account-wrap button:hover { background: #65211f; border-color: #65211f; color: #fff; }
+.btn.ghost { background: transparent; color: var(--rw-ink); }
+.btn.ghost:hover { background: #f0eee8; }
+button:disabled { cursor: not-allowed; }
+.btn fluent-spinner, .account-wrap button fluent-spinner { flex: none; margin-right: 8px; }
+.account-wrap button { display: inline-flex; align-items: center; justify-content: center; }
+.account-wrap #register button { background: #fff; color: var(--rw-red); border-color: var(--rw-control-border); }
+.account-wrap #register button:hover { background: #f4e9e6; border-color: var(--rw-red); }
+.input, .account-wrap input {
+  border-radius: var(--rw-control-radius) !important;
+  background: #fff;
+  border: 1px solid var(--rw-control-border);
+  border-bottom-color: #817a72;
+  color: var(--rw-ink);
+}
+.input:hover, .account-wrap input:hover { border-color: #817a72 !important; }
+.input:focus, .account-wrap input:focus { border-bottom: 2px solid var(--rw-red) !important; }
+.nav-account { background: #fff; border-color: var(--rw-control-border); }
+.nav-account:hover { background: #f0eee8; text-decoration: none; }
+.join-section {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px #25252408;
+}
+.join-progress { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; }
+.join-progress span + span::before { content: none; }
+.join-content input[name="code"] { font-variant-numeric: tabular-nums; letter-spacing: .12em; }
+.library-row:hover, .library-row:focus-within { background: #efede7; }
+.account-wrap #msg:not(:empty) { padding: 0; border: 0; background: none; margin: 20px 0; }
+#msg fluent-message-bar { width: 100%; }
+.ui-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: max-content;
+  max-width: min(460px, calc(100vw - 32px));
+  z-index: 20;
+  box-shadow: 0 4px 20px #25252418;
+}
+@media (max-width: 1150px) {
+  .join-progress { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px; }
+}
+@media (max-width: 850px) {
+  fluent-button.ui-library-open { grid-column: 3; grid-row: 2 / 4; align-self: center; }
+}
+@media (max-width: 600px) {
+  fluent-button.ui-library-open { grid-column: 2; grid-row: 3 / 5; }
+  fluent-button.ui-action { white-space: normal; }
+  fluent-button.ui-leave { margin-left: 0; }
+  .join-progress { gap: 8px 12px; }
+  .join-content .code-form button { flex: 0 0 auto; }
+  .ui-toast { right: 16px; bottom: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn, .nav-account, .account-wrap button { transition: none; }
+  fluent-spinner { --duration: 0s; }
+}

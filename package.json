@@ -1,1 +1,18 @@
-{"name":"runenwerk-online","version":"2.0.0","private":true,"type":"module","scripts":{"dev":"netlify dev","check":"node --check app.js && node --check netlify/functions/api.mjs && node --test tests/*.test.mjs"},"engines":{"node":">=20"},"devDependencies":{"netlify-cli":"^23.0.0"}}
+{
+  "name": "runenwerk-online",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "netlify dev",
+    "build:ui": "node scripts/build-ui.mjs",
+    "check": "node --check ui/fluent.js && node --check public/fluent-ui.js && node --check public/runenwerk-main-20261030.js && node --check public/account.js && node --check netlify/functions/api.mjs && node --test tests/*.test.mjs"
+  },
+  "engines": { "node": ">=22" },
+  "devDependencies": {
+    "@fluentui/tokens": "1.0.0-alpha.24",
+    "@fluentui/web-components": "3.2.1",
+    "esbuild": "0.27.0",
+    "netlify-cli": "^23.0.0"
+  }
+}
