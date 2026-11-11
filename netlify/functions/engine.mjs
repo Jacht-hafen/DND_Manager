@@ -1,3 +1,4 @@
+import { STORY_PUZZLES } from '../../public/story-puzzles.js';
 export const PUZZLES = [
  {id:'runes',name:'Das Runensiegel',kind:'Kooperation',icon:'ᚱ',desc:'Ein Spieler berührt die Runen, der andere entziffert die Inschrift.'},
  {id:'levers',name:'Die sechs Hebel',kind:'Reihenfolge',icon:'⚙',desc:'Sechs Farben, sechs Klänge und eine verborgene Reihenfolge.'},
@@ -6,7 +7,8 @@ export const PUZZLES = [
  {id:'pressure',name:'Die drei Druckplatten',kind:'Kooperation',icon:'⬡',desc:'Nur wenn drei Spieler gleichzeitig ihre Platte halten, öffnet sich das Tor.'},
  {id:'numbers',name:'Die verborgenen Zahlen',kind:'Beobachtung',icon:'⌗',desc:'Erkennt die Gegenstände und entschlüsselt den Zahlencode.'},
  {id:'chambers',name:'Die Feuerschale',kind:'Experiment',icon:'♨',desc:'Drei Schalter und nur eine Möglichkeit, die zweite Kammer zu betreten.'},
- {id:'einstein',name:'Die fünf Türme',kind:'Logik',icon:'♜',desc:'Fünf Türme und die Frage: Wer hält den Wasserdrachen?'}
+ {id:'einstein',name:'Die fünf Türme',kind:'Logik',icon:'♜',desc:'Fünf Türme und die Frage: Wer hält den Wasserdrachen?'},
+ ...STORY_PUZZLES
 ];
 export const defaultData=()=>({steps:[],solved:[],plates:{},switches:[false,false,false],fireStart:0,entered:false,attempts:0,events:[]});
 const sequences={runes:['2','0','4','1'],levers:['4','0','1','5','3','2'],compass:['W','N','N','S','NW','E']};

@@ -1,4 +1,5 @@
 import { setFormBusy } from './fluent-ui.js';
+import { STORY_PUZZLES, STORY_BY_ID } from './story-puzzles.js';
 
 const LIBRARY = {
   'runes': {
@@ -82,6 +83,15 @@ const LIBRARY = {
   }
 };
 
+for (const p of STORY_PUZZLES) LIBRARY[p.id] = {
+  ...p, players: '1–6', description: p.desc
+};
+
+const paragraphs = text => String(text).split('\n').map(line => `<p>${E(line)}</p>`).join('');
+function storyContent(p, showSolution = true) {
+  return `<section class="story-puzzle"><h3>Die Aufgabe</h3>${paragraphs(p.task)}${showSolution ? `<details><summary>Tipp anzeigen</summary>${paragraphs(p.hint)}</details><details><summary>Lösung anzeigen</summary>${paragraphs(p.solution)}</details>` : ''}</section>`;
+}
+
 let selectedLibrary = null;
 let joinStage = 1, joinCode = '', joinPassword = '', joinTitle = '';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
@@ -146,6 +156,8 @@ const PUZZLES = [['runes', 'Das Runensiegel', 'Kooperation', 'ᚱ', 'Zwei Rollen
   '⬡',
   'Drei Helden müssen gleichzeitig die Platten betreten'
 ], ['numbers', 'Die verborgenen Zahlen', 'Beobachtung', '⌗', 'Ein Gemälde versteckt vier Ziffern'], ['chambers', 'Die Feuerschale', 'Experiment', '♨', 'Wärme und Flamme verraten das richtige Symbol'], ['einstein', 'Die fünf Türme', 'DM-geführt', '♜', 'Ein anspruchsvolles Logikrätsel mit offenem Ende']];
+
+PUZZLES.push(...STORY_PUZZLES.map(p => [p.id, p.name, p.kind, p.icon, p.desc]));
 
 const $ = s => document.querySelector(s);
 
@@ -342,7 +354,7 @@ function joinForm() {
 function home() {
   return `<section class="hero"><h1>Rätsel für deine D&D-Kampagne.</h1><p>Entdecke kooperative Fantasy-Rätsel. Tritt mit einem Einladungscode einer Live-Runde bei oder erstelle als Premium-Mitglied eine eigene Spielsitzung.</p><div class="actions">${isPremium ? '<fluent-button type="button" appearance="primary" class="ui-action" data-go="create">Live-Spiel erstellen</fluent-button>' : currentUser ? '<a class="btn" href="/account.html">Premium erforderlich, um Spiele zu erstellen</a>' : '<a class="btn" href="/account.html">Anmelden für Premium-Spiele</a>'}${creds ? '<fluent-button type="button" appearance="secondary" class="ui-action" data-action="resume">Vorheriges Spiel fortsetzen</fluent-button>' : ''}</div></section>
 <section class="wide-card section join-section join-stage-${joinStage}" id="beitreten" aria-labelledby="join-title"><div class="join-intro"><h2 id="join-title">Einem Spiel beitreten</h2><p>Mit einem Einladungscode kannst du einer bestehenden Spielrunde beitreten.</p></div><div class="join-content">${joinForm()}</div><p class="join-progress" aria-live="polite"><fluent-badge appearance="tint" color="brand" shape="rounded">Schritt ${joinStage} von 3</fluent-badge><span>${joinStage === 1 ? 'Raum-Passwort folgt' : joinStage === 2 ? 'Raum-Passwort eingeben' : 'Name und Rolle wählen'}</span></p></section>
-<section class="section library-section" id="bibliothek" aria-labelledby="library-title"><div class="sectionhead"><h2 id="library-title">Die Rätselbibliothek</h2><small>Acht Rätsel für deine nächste Spielsitzung</small></div><form id="library-filter-form" class="library-filters" aria-label="Rätsel filtern"><label>Suche<input class="input" name="q" maxlength="80" value="${E(libraryFilters.q)}" placeholder="Rätsel suchen"></label><label>Kategorie<select class="input" name="category"><option value="">Alle Kategorien</option>${[...new Set(PUZZLES.map(p=>p[2]))].map(c=>`<option value="${E(c)}" ${libraryFilters.category===c?'selected':''}>${E(c)}</option>`).join('')}</select></label><label>Schwierigkeit<select class="input" name="difficulty"><option value="">Alle</option>${['Leicht','Mittel','Schwer'].map(d=>`<option ${libraryFilters.difficulty===d?'selected':''}>${d}</option>`).join('')}</select></label><label>Dauer<select class="input" name="duration"><option value="">Beliebig</option>${[10,15,20,30,45].map(n=>`<option value="${n}" ${libraryFilters.duration===String(n)?'selected':''}>max. ${n} Minuten</option>`).join('')}</select></label><button class="btn primary">Filtern</button><button type="button" class="btn" data-filter-reset="1">Zurücksetzen</button></form><div class="library-list">${filteredPuzzles().map(
+<section class="section library-section" id="bibliothek" aria-labelledby="library-title"><div class="sectionhead"><h2 id="library-title">Die Rätselbibliothek</h2><small>${PUZZLES.length} Rätsel für deine nächste Spielsitzung</small></div><form id="library-filter-form" class="library-filters" aria-label="Rätsel filtern"><label>Suche<input class="input" name="q" maxlength="80" value="${E(libraryFilters.q)}" placeholder="Rätsel suchen"></label><label>Kategorie<select class="input" name="category"><option value="">Alle Kategorien</option>${[...new Set(PUZZLES.map(p=>p[2]))].map(c=>`<option value="${E(c)}" ${libraryFilters.category===c?'selected':''}>${E(c)}</option>`).join('')}</select></label><label>Schwierigkeit<select class="input" name="difficulty"><option value="">Alle</option>${['Leicht','Mittel','Schwer'].map(d=>`<option ${libraryFilters.difficulty===d?'selected':''}>${d}</option>`).join('')}</select></label><label>Dauer<select class="input" name="duration"><option value="">Beliebig</option>${[10,15,20,30,45].map(n=>`<option value="${n}" ${libraryFilters.duration===String(n)?'selected':''}>max. ${n} Minuten</option>`).join('')}</select></label><button class="btn primary">Filtern</button><button type="button" class="btn" data-filter-reset="1">Zurücksetzen</button></form><div class="library-list">${filteredPuzzles().map(
   p => `<article class="library-row"><span class="library-category">${E(p[2])}</span><div class="library-copy"><h3>${E(p[1])}</h3><p>${E(p[4])}</p></div><span class="library-duration">${E(LIBRARY[p[0]].duration)}${reviewStats[p[0]]?" · "+(reviewStats[p[0]].total/reviewStats[p[0]].n).toFixed(1)+"/5 ★":""}</span><span class="library-players">${E(LIBRARY[p[0]].players)} Spieler</span><fluent-button type="button" appearance="subtle" class="ui-action ui-library-open" data-library="${p[0]}" aria-label="${E(p[1])} – Details öffnen">Details ansehen</fluent-button></article>`
 ).join('')||'<p>Keine Rätsel gefunden. Versuche andere Filter.</p>'}</div></section>`;
 }
@@ -354,7 +366,7 @@ function libraryDetail() {
     return home();
 
   const d = LIBRARY[p[0]];
-  return `<section class="section library-detail"><fluent-button type="button" appearance="subtle" class="ui-action ui-back" data-library-back="1">← Rätselbibliothek</fluent-button><div class="wide-card"><div class="eyebrow">${E(p[2])} · RÄTSEL-STECKBRIEF</div><h1>${E(p[1])}</h1><p>${E(d.description)}</p><div class="library-facts"><span>Dauer: ${E(d.duration)}</span><span>Spieler: ${E(d.players)}</span><span class="difficulty-fact">Schwierigkeit: <fluent-badge appearance="tint" color="${d.difficulty === 'Leicht' ? 'success' : d.difficulty === 'Schwer' ? 'warning' : 'informative'}" shape="rounded">${E(d.difficulty)}</fluent-badge></span></div><h3>Benötigte Materialien und Vorbereitung</h3><p>${E(d.materials)}</p><h3>Einbau in eine D&D-Kampagne</h3><p>${E(d.campaign)}</p><h3>Hinweise für Dungeon Master</h3><p>${E(d.hint)}</p><p><small>Spieldauer ist eine Schätzung und abhängig von Erfahrung und Gruppengröße.</small></p>${currentUser?`<div class="actions"><button class="btn" data-favorite="${E(p[0])}">${favoriteIds.has(p[0])?"Aus Favoriten entfernen":"Zu Favoriten hinzufügen"}</button><a class="btn" href="/workspace.html">Bewertungen und Kampagnen</a></div>`:"<p>Für Favoriten und Bewertungen bitte anmelden.</p>"}</div></section>`;
+  return `<section class="section library-detail"><fluent-button type="button" appearance="subtle" class="ui-action ui-back" data-library-back="1">← Rätselbibliothek</fluent-button><div class="wide-card"><div class="eyebrow">${E(p[2])} · RÄTSEL-STECKBRIEF</div><h1>${E(p[1])}</h1><p>${E(d.description)}</p><div class="library-facts"><span>Dauer: ${E(d.duration)}</span><span>Spieler: ${E(d.players)}</span><span class="difficulty-fact">Schwierigkeit: <fluent-badge appearance="tint" color="${d.difficulty === 'Leicht' ? 'success' : d.difficulty === 'Schwer' ? 'warning' : 'informative'}" shape="rounded">${E(d.difficulty)}</fluent-badge></span></div>${STORY_BY_ID[p[0]] ? storyContent(STORY_BY_ID[p[0]]) : ''}<h3>Benötigte Materialien und Vorbereitung</h3><p>${E(d.materials)}</p><h3>Einbau in eine D&D-Kampagne</h3><p>${E(d.campaign)}</p>${STORY_BY_ID[p[0]] ? '<p>In Live-Runden bewertet der Dungeon Master eure Antwort.</p>' : `<h3>Hinweise für Dungeon Master</h3><p>${E(d.hint)}</p>`}<p><small>Spieldauer ist eine Schätzung und abhängig von Erfahrung und Gruppengröße.</small></p>${currentUser?`<div class="actions"><button class="btn" data-favorite="${E(p[0])}">${favoriteIds.has(p[0])?"Aus Favoriten entfernen":"Zu Favoriten hinzufügen"}</button><a class="btn" href="/workspace.html">Bewertungen und Kampagnen</a></div>`:"<p>Für Favoriten und Bewertungen bitte anmelden.</p>"}</div></section>`;
 }
 
 function entry() {
@@ -399,6 +411,10 @@ function puzzle() {
         canPlay = room.phase === 'playing';
 
   let inner = '';
+
+  if (STORY_BY_ID[p]) inner = storyContent(STORY_BY_ID[p], dm) + (dm
+    ? '<p>Bewerte die Antwort eurer Runde und markiere das Rätsel oben als gelöst. Einen Tipp kannst du über „Hinweis an Spieler senden“ teilen.</p>'
+    : '<p>Besprecht eure Antwort mit dem Dungeon Master. Er gibt Hinweise und bestätigt die Lösung.</p>');
 
   if(p==='custom')inner=tile(E(d.custom?.title||'Eigenes Rätsel'),E(d.custom?.description||'Wartet auf Hinweise des Dungeon Masters.'),dm?'<p>Markiere das Rätsel in der DM-Konsole als gelöst.</p>':'<p>Besprecht eure Lösung mit dem Dungeon Master.</p>');
   if (p === 'runes') inner = role === 'b' ? tile(

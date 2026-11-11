@@ -1,7 +1,8 @@
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 const client=createClient('https://zxzrtwfzouhbfdzextxo.supabase.co','sb_publishable_ql4BxoH-no03FyVc_g-sGg_O9zChjGS');
 const $=s=>document.querySelector(s);
-const PUZZLES=[['runes','Das Runensiegel'],['levers','Die sechs Hebel'],['compass','Das Vermächtnis des Königs'],['mirrors','Die Spiegelkammer'],['pressure','Die drei Druckplatten'],['numbers','Die verborgenen Zahlen'],['chambers','Die Feuerschale'],['einstein','Die fünf Türme']];
+import { STORY_PUZZLES } from './story-puzzles.js';
+const PUZZLES=[['runes','Das Runensiegel'],['levers','Die sechs Hebel'],['compass','Das Vermächtnis des Königs'],['mirrors','Die Spiegelkammer'],['pressure','Die drei Druckplatten'],['numbers','Die verborgenen Zahlen'],['chambers','Die Feuerschale'],['einstein','Die fünf Türme'],...STORY_PUZZLES.map(p=>[p.id,p.name])];
 let user=null,premium=false,groups=[],campaigns=[],sessions=[],custom=[],favorites=[],reviews=[],handouts=[];
 const nameOf=id=>PUZZLES.find(p=>p[0]===id)?.[1]||custom.find(p=>p.id===id)?.title||id;
 function message(value){$('#notice').textContent=value}
