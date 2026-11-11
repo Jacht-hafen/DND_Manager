@@ -99,3 +99,25 @@ npm run check
 ```
 
 Tests prüfen unter anderem Zugriffsrollen, Rätsellösungen und Zurücksetzungen.
+
+## Vercel und Sicherheit
+
+- Das statische Frontend liegt in `public/`. Vercel benutzt `vercel.json` und die Funktion `api/[endpoint].js`; Netlify benutzt weiterhin `netlify/functions/api.mjs`.
+- In Vercel müssen `SUPABASE_URL` und `SUPABASE_SERVICE_ROLE_KEY` als **serverseitige** Umgebungsvariablen gesetzt werden. Der Service-Role-Schlüssel darf niemals im Frontend stehen.
+- Die API validiert Codes und Namen, begrenzt JSON-Anfragen, prüft Herkunft bei Browser-POSTs, verlangt Authentifizierung für Raumaktionen und gibt interne Datenbankfehler nicht an Clients weiter.
+- PostgREST-Filter nutzen validierte Codes und kodierte Werte, keine direkte SQL-Stringkonkatenation. Das schützt vor SQL-Injection in diesen Endpunkten, ersetzt aber keine Prüfung zukünftiger SQL-Zugriffe.
+- Die im API-Code enthaltene Rate-Begrenzung ist **nur pro Server-Instanz** und daher kein zuverlässiger Schutz gegen verteilte Brute-Force-Angriffe. Vor öffentlichem Launch Vercel Firewall-/WAF-Rate-Limits für `/api/check-password`, `/api/join`, `/api/check-code` und `/api/create` einrichten, gegebenenfalls mit Captcha oder zentralem Rate-Limit-Speicher.
+- Einstellungen für RLS, minimale Berechtigungen, Secret-Rotation, Monitoring, Abuse-Alerts, Backups und Passwort-Reset müssen im Supabase-/Vercel-Dashboard separat geprüft werden.
+- Sicherheitstests: `npm run check`. Nach Deployment mit Testkonten die komplette Anmeldung, Premium-Rechte und den Raumbeitritt prüfen.
+
+## Arbeitsbereich, Kampagnen & Sicherheit (2026-11)
+
+Die Website besitzt jetzt einen Arbeitsbereich unter `/workspace.html`. Dort können angemeldete Benutzer Kampagnen, eigene Rätsel, Favoriten, Bewertungen, Handouts und Sitzungschroniken verwalten. Premium-Nutzer können neue Kampagnen in ihren Gruppen anlegen, eigene Rätsel erstellen und in einer aktiven Live-Sitzung starten. Dungeon Master können Rollen freigeben und Hinweise senden.
+
+Neue Räume bleiben ab Erstellung ein Jahr gültig. Öffnet der Eigentümer sie erneut, wird die Laufzeit verlängert. Die Raumerstellung erfordert ein Premium-Konto und ein gesondertes Raumpasswort.
+
+Die angewendeten Datenbankmigrationen sind unter `supabase/migrations/` versioniert. Bei einem neuen Projekt müssen die Migrationen ausgeführt werden. Das ursprüngliche `supabase/schema.sql` ist nur das alte MVP-Basisschema.
+
+**Sicherheit:** Nutzergebundene Tabellen nutzen RLS; eigene Rätsellösungen bleiben privat. Passwortversuche werden zentral in Postgres limitiert. Die API protokolliert fehlgeschlagene Raum-Passworteingaben ohne Klartext-IP-Adressen oder Passwörter. Konto-Seite: Passwort-Zurücksetzen, Datenexport und Kontolöschung. In Supabase Auth muss `/account.html` als zulässige Redirect-URL hinterlegt sein.
+
+**Noch konfigurieren:** Die Produktivbereitstellung auf Vercel benötigt `SUPABASE_URL` und `SUPABASE_SERVICE_ROLE_KEY` als geheime Server-Umgebungsvariablen. Zusätzlich solltest du Supabase Auth Leaked Password Protection und Vercel WAF/Firewall-Limits aktivieren. Die automatischen Checks laufen per GitHub Actions (`npm run check`).

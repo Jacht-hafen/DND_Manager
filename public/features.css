@@ -1,0 +1,17 @@
+/* Runenwerk: library search, favorite and DM controls */
+.library-filters{display:flex;align-items:end;flex-wrap:wrap;gap:12px;padding:18px 0 23px}
+.library-filters label{display:flex;flex-direction:column;gap:7px;font:600 13px Arial,Helvetica,sans-serif;color:#403b36;flex:1 1 155px}
+.library-filters label:first-child{flex-grow:2}
+.library-filters .input{width:100%;min-height:42px;padding:9px 12px}
+.library-filters .btn{min-height:42px;margin:0}
+.library-filters select{font-size:14px!important}
+.room-head .code-card{max-width:100%}
+.work-buttons{display:flex;flex-wrap:wrap;gap:10px}
+@media(max-width:680px){.library-filters{align-items:stretch;flex-direction:column}.library-filters label,.library-filters .btn{width:100%;flex:auto}.library-filters input,.library-filters select{width:100%}}
+
+/* Live puzzle notices */
+.session-hints{margin:18px 0;padding:18px 22px;border-left:4px solid #7c2826;background:#fffcf5}
+.session-hints h3{margin:0 0 10px;font:700 18px Arial,sans-serif;color:#242323}
+.session-hints .session-hint{margin:8px 0;white-space:pre-wrap;color:#292521;line-height:1.5}
+.group-entry{margin:16px 0}
+.group-entry ul{padding-left:24px;margin:8px 0}

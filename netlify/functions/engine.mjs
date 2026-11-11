@@ -14,9 +14,11 @@ function complete(data,puzzle){if(!data.solved.includes(puzzle))data.solved.push
 export function applyAction(room,player,action){
  const d=structuredClone(room.data||defaultData());d.steps??=[];d.solved??=[];d.plates??={};d.switches??=[false,false,false];d.events??=[];
  const p=room.puzzle,host=player.role==='dm';let message='';let changed=true;
- if(action.type==='select' && host){if(!PUZZLES.some(x=>x.id===action.puzzle))throw Error('Rätsel unbekannt');room.puzzle=action.puzzle;room.phase='playing';d.steps=[];d.plates={};d.switches=[false,false,false];d.entered=false;d.fireStart=0;message='Rätsel gestartet';}
+ if(action.type==='select' && host){if(!PUZZLES.some(x=>x.id===action.puzzle))throw Error('Rätsel unbekannt');room.puzzle=action.puzzle;room.phase='playing';d.steps=[];d.plates={};d.switches=[false,false,false];d.entered=false;d.fireStart=0;d.events=d.events.filter(e=>e.type!=='hint');message='Rätsel gestartet';}
  else if(action.type==='phase' && host){if(!['lobby','playing','paused'].includes(action.phase))throw Error('Ungültige Phase');room.phase=action.phase;message='Sitzung aktualisiert';}
- else if(action.type==='reset' && host){d.steps=[];d.plates={};d.switches=[false,false,false];d.entered=false;d.fireStart=0;d.solved=d.solved.filter(x=>x!==p);message='Rätsel zurückgesetzt';}
+ else if(action.type==='reset' && host){d.steps=[];d.plates={};d.switches=[false,false,false];d.entered=false;d.fireStart=0;d.fireState=undefined;d.attempts=0;d.solved=d.solved.filter(x=>x!==p);d.events=d.events.filter(e=>e.type!=='hint');message='Rätsel zurückgesetzt';}
+ else if(action.type==='reset-steps' && p==='levers'){if(room.phase!=='playing')throw Error('Das Rätsel ist nicht aktiv.');if(d.solved.includes(p))throw Error('Das Rätsel ist bereits gelöst.');d.steps=[];message='Hebel zurückgesetzt';}
+ else if(action.type==='hint' && host){const text=String(action.text||'').trim();if(!text||text.length>280)throw Error('Hinweis muss 1 bis 280 Zeichen enthalten');d.events.unshift({type:'hint',message:'Hinweis vom DM: '+text,at:Date.now()});d.events=d.events.slice(0,24);message='Hinweis gesendet';}
  else if(action.type==='theme' && host){if(!['ember','forest','crypt'].includes(action.theme))throw Error('Ungültiges Theme');room.theme=action.theme;message='Design geändert';}
  else if(action.type==='solve' && host){complete(d,p);message='Rätsel freigegeben';}
  else {
@@ -51,6 +53,6 @@ export function applyAction(room,player,action){
    else{d.attempts=(d.attempts||0)+1;message='Das falsche Symbol gewählt';}
  } else throw Error('Diese Aktion ist nicht möglich');
  }
- if(message){d.events.unshift({type:'info',message:message.slice(0,120),at:Date.now()});d.events=d.events.slice(0,12)}
+ if(message){d.events.unshift({type:'info',message:message.slice(0,120),at:Date.now()});d.events=d.events.slice(0,24)}
  return {...room,data:d};
 }

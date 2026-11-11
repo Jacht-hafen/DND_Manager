@@ -87,6 +87,10 @@ let joinStage = 1, joinCode = '', joinPassword = '', joinTitle = '';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.4';
 const authClient = createClient('https://zxzrtwfzouhbfdzextxo.supabase.co', 'sb_publishable_ql4BxoH-no03FyVc_g-sGg_O9zChjGS');
 let currentUser = null, isPremium = false;
+let favoriteIds=new Set(), reviewStats={};
+let libraryFilters={q:'',difficulty:'',category:'',duration:''};
+function filteredPuzzles(){return PUZZLES.filter(p=>{const d=LIBRARY[p[0]];const range=String(d.duration).match(/\d+/g)||[];const minutes=Number(range.at(-1)||0);return (!libraryFilters.q||(p[1]+' '+p[2]+' '+p[4]).toLowerCase().includes(libraryFilters.q.toLowerCase()))&&(!libraryFilters.difficulty||d.difficulty===libraryFilters.difficulty)&&(!libraryFilters.category||p[2]===libraryFilters.category)&&(!libraryFilters.duration||minutes<=Number(libraryFilters.duration))})}
+
 
 async function refreshAccount() {
   try {
@@ -104,8 +108,12 @@ async function refreshAccount() {
       } = await authClient.from('rw_profiles').select('is_premium').eq('user_id', user.id).single();
 
       isPremium = data?.is_premium === true;
+      const [favorites,reviews]=await Promise.all([authClient.from('rw_favorites').select('puzzle_id').eq('user_id',user.id),authClient.from('rw_reviews').select('puzzle_id,rating,difficulty')]);
+      favoriteIds=new Set((favorites.data||[]).map(x=>x.puzzle_id));
+      reviewStats={};for(const x of reviews.data||[]){const item=reviewStats[x.puzzle_id]??={n:0,total:0,difficulty:0};item.n++;item.total+=x.rating;item.difficulty+=x.difficulty;}
     } else
       isPremium = false;
+    if(!user){favoriteIds.clear();reviewStats={}}
 
     render();
   } catch (e) {
@@ -159,7 +167,9 @@ if (q.has('home')) {
 let creds = JSON.parse(localStorage.getItem('rw_credentials') || 'null');
 let room = null, page = 'home', busy = false, view = 'play', audio = true;
 let lastVersion = -1;
+let lastPlayersSignature = '';
 let polling;
+let refreshInFlight = false;
 
 const store = () => {
   if (creds)
@@ -241,6 +251,7 @@ function roleName(r) {
 
 function startPoll() {
   clearInterval(polling);
+  page = 'room';
   refresh();
 
   polling = setInterval(() => {
@@ -250,22 +261,29 @@ function startPoll() {
 }
 
 async function refresh(silent = false) {
-  if (!creds)
-    return;
-
+  if (!creds || refreshInFlight) return;
+  refreshInFlight = true;
   try {
     const r = await api('state');
+    if (!creds || creds.code !== r.code) return;
+    const signature = JSON.stringify(r.players.map(p => [p.id,p.role,p.name]).sort((a,b)=>a[1].localeCompare(b[1])));
+    const changed = !room || r.version !== lastVersion || signature !== lastPlayersSignature;
     room = r;
     document.body.dataset.theme = r.theme;
-
-    if (!silent || r.version !== lastVersion) {
+    if (!silent || changed) {
       lastVersion = r.version;
+      lastPlayersSignature = signature;
       render();
     }
   } catch (e) {
-    if (!silent)
-      alertMsg(e.message, true);
-  }
+    if (!silent) alertMsg(e.message, true);
+    else if (/Zugriff verweigert|nicht gefunden|abgelaufen/i.test(e.message || '')) {
+      clearInterval(polling);
+      creds = null; room = null; lastVersion = -1;
+      store(); page = 'home'; render();
+      alertMsg('Die Sitzung ist nicht mehr verfügbar. Bitte erneut beitreten.', true);
+    }
+  } finally {refreshInFlight = false;}
 }
 
 async function send(action) {
@@ -282,6 +300,7 @@ async function send(action) {
     });
 
     lastVersion = room.version;
+    lastPlayersSignature = JSON.stringify(room.players.map(p=>[p.id,p.role,p.name]).sort((a,b)=>a[1].localeCompare(b[1])));
     render();
     const ev = room.data.events?.[0];
 
@@ -300,7 +319,7 @@ function tile(title, desc, content = '') {
 }
 
 function top() {
-  return `<header class="top" role="banner"><a href="/" class="brand" aria-label="Runenwerk – zur Startseite">RUNENWERK</a><nav class="topright" aria-label="Hauptnavigation">${room ? `<fluent-badge appearance="tint" shape="rounded" color="${room.phase === 'playing' ? 'success' : room.phase === 'paused' ? 'warning' : 'subtle'}">${room.phase === 'playing' ? 'Sitzung läuft' : room.phase === 'paused' ? 'Pausiert' : 'Warteraum'}</fluent-badge><span class="avatar">${room.you.role.toUpperCase()}</span>` : '<a class="nav-link" href="/#bibliothek">Rätselbibliothek</a><a class="nav-link" href="/#beitreten">Spiel beitreten</a>'}<a href="/account.html" class="nav-account">Konto &amp; Gruppen</a></nav></header>`;
+  return `<header class="top" role="banner"><a href="/" class="brand" aria-label="Runenwerk – zur Startseite">RUNENWERK</a><nav class="topright" aria-label="Hauptnavigation">${room ? `<fluent-badge appearance="tint" shape="rounded" color="${room.phase === 'playing' ? 'success' : room.phase === 'paused' ? 'warning' : 'subtle'}">${room.phase === 'playing' ? 'Sitzung läuft' : room.phase === 'paused' ? 'Pausiert' : 'Warteraum'}</fluent-badge><span class="avatar">${room.you.role.toUpperCase()}</span>` : '<a class="nav-link" href="/#bibliothek">Rätselbibliothek</a><a class="nav-link" href="/#beitreten">Spiel beitreten</a>'}<a href="/workspace.html" class="nav-link">Arbeitsbereich</a><a href="/account.html" class="nav-account">Konto &amp; Gruppen</a></nav></header>`;
 }
 
 function tabs() {
@@ -323,9 +342,9 @@ function joinForm() {
 function home() {
   return `<section class="hero"><h1>Rätsel für deine D&D-Kampagne.</h1><p>Entdecke kooperative Fantasy-Rätsel. Tritt mit einem Einladungscode einer Live-Runde bei oder erstelle als Premium-Mitglied eine eigene Spielsitzung.</p><div class="actions">${isPremium ? '<fluent-button type="button" appearance="primary" class="ui-action" data-go="create">Live-Spiel erstellen</fluent-button>' : currentUser ? '<a class="btn" href="/account.html">Premium erforderlich, um Spiele zu erstellen</a>' : '<a class="btn" href="/account.html">Anmelden für Premium-Spiele</a>'}${creds ? '<fluent-button type="button" appearance="secondary" class="ui-action" data-action="resume">Vorheriges Spiel fortsetzen</fluent-button>' : ''}</div></section>
 <section class="wide-card section join-section join-stage-${joinStage}" id="beitreten" aria-labelledby="join-title"><div class="join-intro"><h2 id="join-title">Einem Spiel beitreten</h2><p>Mit einem Einladungscode kannst du einer bestehenden Spielrunde beitreten.</p></div><div class="join-content">${joinForm()}</div><p class="join-progress" aria-live="polite"><fluent-badge appearance="tint" color="brand" shape="rounded">Schritt ${joinStage} von 3</fluent-badge><span>${joinStage === 1 ? 'Raum-Passwort folgt' : joinStage === 2 ? 'Raum-Passwort eingeben' : 'Name und Rolle wählen'}</span></p></section>
-<section class="section library-section" id="bibliothek" aria-labelledby="library-title"><div class="sectionhead"><h2 id="library-title">Die Rätselbibliothek</h2><small>Acht Rätsel für deine nächste Spielsitzung</small></div><div class="library-list">${PUZZLES.map(
-  p => `<article class="library-row"><span class="library-category">${E(p[2])}</span><div class="library-copy"><h3>${E(p[1])}</h3><p>${E(p[4])}</p></div><span class="library-duration">${E(LIBRARY[p[0]].duration)}</span><span class="library-players">${E(LIBRARY[p[0]].players)} Spieler</span><fluent-button type="button" appearance="subtle" class="ui-action ui-library-open" data-library="${p[0]}" aria-label="${E(p[1])} – Details öffnen">Details ansehen</fluent-button></article>`
-).join('')}</div></section>`;
+<section class="section library-section" id="bibliothek" aria-labelledby="library-title"><div class="sectionhead"><h2 id="library-title">Die Rätselbibliothek</h2><small>Acht Rätsel für deine nächste Spielsitzung</small></div><form id="library-filter-form" class="library-filters" aria-label="Rätsel filtern"><label>Suche<input class="input" name="q" maxlength="80" value="${E(libraryFilters.q)}" placeholder="Rätsel suchen"></label><label>Kategorie<select class="input" name="category"><option value="">Alle Kategorien</option>${[...new Set(PUZZLES.map(p=>p[2]))].map(c=>`<option value="${E(c)}" ${libraryFilters.category===c?'selected':''}>${E(c)}</option>`).join('')}</select></label><label>Schwierigkeit<select class="input" name="difficulty"><option value="">Alle</option>${['Leicht','Mittel','Schwer'].map(d=>`<option ${libraryFilters.difficulty===d?'selected':''}>${d}</option>`).join('')}</select></label><label>Dauer<select class="input" name="duration"><option value="">Beliebig</option>${[10,15,20,30,45].map(n=>`<option value="${n}" ${libraryFilters.duration===String(n)?'selected':''}>max. ${n} Minuten</option>`).join('')}</select></label><button class="btn primary">Filtern</button><button type="button" class="btn" data-filter-reset="1">Zurücksetzen</button></form><div class="library-list">${filteredPuzzles().map(
+  p => `<article class="library-row"><span class="library-category">${E(p[2])}</span><div class="library-copy"><h3>${E(p[1])}</h3><p>${E(p[4])}</p></div><span class="library-duration">${E(LIBRARY[p[0]].duration)}${reviewStats[p[0]]?" · "+(reviewStats[p[0]].total/reviewStats[p[0]].n).toFixed(1)+"/5 ★":""}</span><span class="library-players">${E(LIBRARY[p[0]].players)} Spieler</span><fluent-button type="button" appearance="subtle" class="ui-action ui-library-open" data-library="${p[0]}" aria-label="${E(p[1])} – Details öffnen">Details ansehen</fluent-button></article>`
+).join('')||'<p>Keine Rätsel gefunden. Versuche andere Filter.</p>'}</div></section>`;
 }
 
 function libraryDetail() {
@@ -335,7 +354,7 @@ function libraryDetail() {
     return home();
 
   const d = LIBRARY[p[0]];
-  return `<section class="section library-detail"><fluent-button type="button" appearance="subtle" class="ui-action ui-back" data-library-back="1">← Rätselbibliothek</fluent-button><div class="wide-card"><div class="eyebrow">${E(p[2])} · RÄTSEL-STECKBRIEF</div><h1>${E(p[1])}</h1><p>${E(d.description)}</p><div class="library-facts"><span>Dauer: ${E(d.duration)}</span><span>Spieler: ${E(d.players)}</span><span class="difficulty-fact">Schwierigkeit: <fluent-badge appearance="tint" color="${d.difficulty === 'Leicht' ? 'success' : d.difficulty === 'Schwer' ? 'warning' : 'informative'}" shape="rounded">${E(d.difficulty)}</fluent-badge></span></div><h3>Benötigte Materialien und Vorbereitung</h3><p>${E(d.materials)}</p><h3>Einbau in eine D&D-Kampagne</h3><p>${E(d.campaign)}</p><h3>Hinweise für Dungeon Master</h3><p>${E(d.hint)}</p><p><small>Spieldauer ist eine Schätzung und abhängig von Erfahrung und Gruppengröße.</small></p></div></section>`;
+  return `<section class="section library-detail"><fluent-button type="button" appearance="subtle" class="ui-action ui-back" data-library-back="1">← Rätselbibliothek</fluent-button><div class="wide-card"><div class="eyebrow">${E(p[2])} · RÄTSEL-STECKBRIEF</div><h1>${E(p[1])}</h1><p>${E(d.description)}</p><div class="library-facts"><span>Dauer: ${E(d.duration)}</span><span>Spieler: ${E(d.players)}</span><span class="difficulty-fact">Schwierigkeit: <fluent-badge appearance="tint" color="${d.difficulty === 'Leicht' ? 'success' : d.difficulty === 'Schwer' ? 'warning' : 'informative'}" shape="rounded">${E(d.difficulty)}</fluent-badge></span></div><h3>Benötigte Materialien und Vorbereitung</h3><p>${E(d.materials)}</p><h3>Einbau in eine D&D-Kampagne</h3><p>${E(d.campaign)}</p><h3>Hinweise für Dungeon Master</h3><p>${E(d.hint)}</p><p><small>Spieldauer ist eine Schätzung und abhängig von Erfahrung und Gruppengröße.</small></p>${currentUser?`<div class="actions"><button class="btn" data-favorite="${E(p[0])}">${favoriteIds.has(p[0])?"Aus Favoriten entfernen":"Zu Favoriten hinzufügen"}</button><a class="btn" href="/workspace.html">Bewertungen und Kampagnen</a></div>`:"<p>Für Favoriten und Bewertungen bitte anmelden.</p>"}</div></section>`;
 }
 
 function entry() {
@@ -346,19 +365,19 @@ function entry() {
 }
 
 function roomHeader() {
-  return `<div class="room-head"><div><div class="eyebrow">${E(room.title)} · ${room.code}</div><h1>${room.phase === 'lobby' ? 'Die Abenteurer versammeln sich' : PUZZLES.find(p => p[0] === room.puzzle)?.[1]}</h1><p>Angemeldet als <b>${E(room.you.name)}</b> (${roleName(room.you.role)})</p></div><div class="code-card"><small>SITZUNGSCODE</small><strong>${room.code}</strong><fluent-button type="button" appearance="secondary" class="ui-action" data-action="copy-room">Code kopieren</fluent-button></div></div>${tabs()}`;
+  return `<div class="room-head"><div><div class="eyebrow">${E(room.title)} · ${room.code}</div><h1>${room.phase === 'lobby' ? 'Die Abenteurer versammeln sich' : room.puzzle==='custom'?E(room.data.custom?.title||'Eigenes Rätsel'):PUZZLES.find(p => p[0] === room.puzzle)?.[1]}</h1><p>Angemeldet als <b>${E(room.you.name)}</b> (${roleName(room.you.role)})</p></div><div class="code-card"><small>SITZUNGSCODE</small><strong>${room.code}</strong><fluent-button type="button" appearance="secondary" class="ui-action" data-action="copy-room">Code kopieren</fluent-button></div></div>${(room.data?.events||[]).filter(e=>e.type==='hint').slice(0,4).length?'<section class="wide-card session-hints" aria-label="Hinweise vom Dungeon Master"><h3>Hinweise vom Dungeon Master</h3>'+(room.data.events||[]).filter(e=>e.type==='hint').slice(0,4).map(e=>'<p class="session-hint">'+E(e.message)+'</p>').join('')+'</section>':''}${tabs()}`;
 }
 
 function playersPanel() {
   return `<div class="sectionhead"><h2>Mitspieler & Einladungen</h2><span class="sectionnote">Rollen werden nur einmal vergeben</span></div><div class="grid2"><div class="wide-card"><h3>Verbunden (${room.players.length})</h3>${['a', 'b', 'c'].map(
-  r => `<div class="listrow"><span>${roleName(r)}</span><b>${E(room.players.find(p => p.role === r)?.name || 'Noch frei')}</b></div>`
+  r => `<div class="listrow"><span>${roleName(r)}</span><b>${E(room.players.find(p => p.role === r)?.name || 'Noch frei')}</b>${room.you.role==='dm'&&room.players.some(p=>p.role===r)?`<button class="btn small" data-kick="${r}">Entfernen</button>`:""}</div>`
 ).join('')}<p>Jeder Spieler erhält genau eine Perspektive. Die Live-Ansicht aktualisiert sich automatisch.</p></div><div class="wide-card"><h3>Einladungslinks</h3><p>Schicke einen rollenbezogenen Link an andere Geräte. Der Link allein belegt noch keinen Platz; der Spieler muss beitreten.</p>${['a', 'b', 'c'].map(
   r => `<div class="listrow"><span>${roleName(r)}</span><fluent-button type="button" appearance="secondary" class="ui-action" data-copy-role="${r}">Link kopieren</fluent-button></div>`
 ).join('')}<small>Diese Links enthalten keine privaten Raum-Tokens. Die Rolle wird beim Beitritt reserviert.</small></div></div>`;
 }
 
 function dmControls() {
-  return `<div class="wide-card"><div class="sectionhead"><div><h3>Dungeon-Master-Konsole</h3><p>Bestimme, was alle Spieler gerade sehen.</p></div><span class="tag">HOST</span></div><div class="actions"><fluent-button type="button" appearance="secondary" class="ui-action" data-phase="lobby">Warteraum</fluent-button><fluent-button type="button" appearance="secondary" class="ui-action" data-phase="playing">Starten</fluent-button><fluent-button type="button" appearance="secondary" class="ui-action" data-phase="paused">Pausieren</fluent-button><fluent-button type="button" appearance="secondary" class="ui-action" data-action="reset">↻ Zurücksetzen</fluent-button><fluent-button type="button" appearance="secondary" class="ui-action" data-action="solve">✓ Manuell lösen</fluent-button></div><h3 class="section">Rätsel auswählen</h3><div class="puzzle-select">${PUZZLES.map(
+  return `<div class="wide-card"><div class="sectionhead"><div><h3>Dungeon-Master-Konsole</h3><p>Bestimme, was alle Spieler gerade sehen.</p></div><span class="tag">HOST</span></div><div class="actions"><fluent-button type="button" appearance="secondary" class="ui-action" data-phase="lobby">Warteraum</fluent-button><fluent-button type="button" appearance="secondary" class="ui-action" data-phase="playing">Starten</fluent-button><fluent-button type="button" appearance="secondary" class="ui-action" data-phase="paused">Pausieren</fluent-button><fluent-button type="button" appearance="secondary" class="ui-action" data-action="reset">↻ Zurücksetzen</fluent-button><fluent-button type="button" appearance="secondary" class="ui-action" data-action="solve">✓ Manuell lösen</fluent-button></div><div class="section"><h3>Hinweis an Spieler senden</h3><form id="dm-hint-form" class="code-form"><label>Hinweistext<input class="input" name="hint" minlength="1" maxlength="280" required placeholder="Ein kleiner Tipp..."></label><button class="btn primary">Hinweis senden</button></form></div><h3 class="section">Rätsel auswählen</h3><div class="puzzle-select">${PUZZLES.map(
   p => `<button class="select-tile ${room.puzzle === p[0] ? 'active' : ''}" data-puzzle="${p[0]}"><span>${p[3]}</span>${p[1]}</button>`
 ).join('')}</div></div>`;
 }
@@ -381,6 +400,7 @@ function puzzle() {
 
   let inner = '';
 
+  if(p==='custom')inner=tile(E(d.custom?.title||'Eigenes Rätsel'),E(d.custom?.description||'Wartet auf Hinweise des Dungeon Masters.'),dm?'<p>Markiere das Rätsel in der DM-Konsole als gelöst.</p>':'<p>Besprecht eure Lösung mit dem Dungeon Master.</p>');
   if (p === 'runes') inner = role === 'b' ? tile(
     'Die verborgene Inschrift',
     'Lies die Zeichenfolge dem Runenwächter vor. Nur er kann die Runen berühren.',
@@ -393,7 +413,7 @@ function puzzle() {
 
   if (p === 'levers') inner = `<div class="clue" style="font-size:15px">At the second lever speaking of color could be a lie.<br>A primary first, the mother of dye.<br>The last lever pulled is the color of sky.<br>After the second will buzz like a fly.<br>To find the fourth find the King, but no small fry.</div><div class="lever-grid">${['Schwarz', 'Gelb', 'Blau', 'Grün', 'Rot', 'Rosa'].map(
   (c, i) => `<button class="lever ${steps.includes(String(i)) ? 'on' : ''}" data-step="${i}" ${steps.includes(String(i)) ? 'disabled' : ''}><div class="levercircle" style="background:${['#25262a', '#f0c652', '#4679c3', '#5d9a6c', '#ca5349', '#d58ab8'][i]}"></div>${c}</button>`
-).join('')}</div><p>${steps.length} von 6 Hebeln gezogen. Nach sechs Hebeln wird die Reihenfolge geprüft.</p>${dm ? '<small>DM-Lösung: Rot → Schwarz → Gelb → Rosa → Grün → Blau</small>' : ''}`;
+).join('')}</div><p>${steps.length} von 6 Hebeln gezogen. Nach sechs Hebeln wird die Reihenfolge geprüft.</p>${canPlay&&!solved?'<button class="btn small" data-action="reset-steps">Hebel zurücksetzen</button>':''}${dm ? '<small>DM-Lösung: Rot → Schwarz → Gelb → Rosa → Grün → Blau</small>' : ''}`;
 
   if (p === 'compass') inner = `<div class="clue" style="font-size:15px">Vor langer Zeit lebte König Friedrich <b>verzweifelt</b> im Westen. Er vermisste die <b>Einsamkeit</b> im Norden. „Dass ich nicht <b>erfrier</b>“, schrieb sein Vertrauter. Schon <b>dreist</b> ging er nach Süden. Der <b>Sechste</b> König wählte Nordwesten und träumte mit einem <b>Fünkchen</b> Hoffnung vom Osten.</div><p>Tippe die sechs Himmelsrichtungen in der richtigen Reihenfolge an.</p><div class="compass-grid">${[
   ['NW', '↖'],
@@ -441,7 +461,7 @@ function puzzle() {
   'Der Luftmagier hat einen Nachbarn, der Heiltrank trinkt.'
 ].map(x => `<div class="listrow">${x}</div>`).join('')}</div><h3>Wer hält den Wasserdrachen?</h3>${dm ? '<p>Markiere das Rätsel nach eurer Tischlösung oben als gelöst.</p>' : '<p>Besprecht eure Lösung mit dem Dungeon Master.</p>'}`;
 
-  return `<div class="sectionhead"><div><div class="eyebrow">${PUZZLES.find(x => x[0] === p)?.[2].toUpperCase()} · ${roleName(role)}</div><h2>${PUZZLES.find(x => x[0] === p)?.[1]}</h2></div>${solved ? '<span class="tag success">✓ Gelöst</span>' : `<span class="tag">${room.phase === 'playing' ? 'Aktiv' : 'Wartet auf DM'}</span>`}</div>${room.phase === 'paused' ? '<div class="message error">Der Dungeon Master hat das Spiel pausiert.</div>' : ''}${solved ? '<div class="message">✦ Das magische Siegel ist gebrochen. Euer Rätsel wurde gelöst!</div>' : ''}<div class="puzzle-area ${!canPlay || solved ? 'locked' : ''}">${inner}</div><div class="wide-card section"><h3>Ereignisprotokoll</h3>${(d.events || []).slice(0, 5).map(
+  return `<div class="sectionhead"><div><div class="eyebrow">${(PUZZLES.find(x => x[0] === p)?.[2]||'Eigene Aufgabe').toUpperCase()} · ${roleName(role)}</div><h2>${PUZZLES.find(x => x[0] === p)?.[1]||E(d.custom?.title||'Eigenes Rätsel')}</h2></div>${solved ? '<span class="tag success">✓ Gelöst</span>' : `<span class="tag">${room.phase === 'playing' ? 'Aktiv' : 'Wartet auf DM'}</span>`}</div>${room.phase === 'paused' ? '<div class="message error">Der Dungeon Master hat das Spiel pausiert.</div>' : ''}${solved ? '<div class="message">✦ Das magische Siegel ist gebrochen. Euer Rätsel wurde gelöst!</div>' : ''}<div class="puzzle-area ${!canPlay || solved ? 'locked' : ''}">${inner}</div><div class="wide-card section"><h3>Ereignisprotokoll</h3>${(d.events || []).slice(0, 5).map(
   e => `<div class="listrow"><span>${E(e.message)}</span><small>${new Date(e.at).toLocaleTimeString('de-DE')}</small></div>`
 ).join('') || '<p>Die Geschichte hat noch nicht begonnen.</p>'}</div>`;
 }
@@ -570,6 +590,8 @@ document.addEventListener('submit', async e => {
     } finally {
       setFormBusy(e.target, false);
     }
+  } else if(id==='library-filter-form'){e.preventDefault();const f=new FormData(e.target);libraryFilters={q:String(f.get('q')||'').trim(),difficulty:String(f.get('difficulty')||''),category:String(f.get('category')||''),duration:String(f.get('duration')||'')};render();
+  } else if (id === 'dm-hint-form') {e.preventDefault();await send({type:'hint',text:String(new FormData(e.target).get('hint')||'').trim()});
   } else if (id === 'code-form') {
     e.preventDefault();
 
@@ -588,6 +610,9 @@ document.addEventListener('click', async e => {
 
   const d = t.dataset;
 
+  if(d.filterReset){libraryFilters={q:'',difficulty:'',category:'',duration:''};render();return}
+  if(d.favorite){if(!currentUser)return;const id=d.favorite;const req=favoriteIds.has(id)?authClient.from('rw_favorites').delete().eq('user_id',currentUser.id).eq('puzzle_id',id):authClient.from('rw_favorites').insert({user_id:currentUser.id,puzzle_id:id});const {error}=await req;if(error)alertMsg(error.message,true);else{favoriteIds.has(id)?favoriteIds.delete(id):favoriteIds.add(id);render()}return}
+  if(d.kick){if(!confirm('Spielerrolle '+d.kick.toUpperCase()+' freigeben?'))return;try{await api('remove-player',{code:creds.code,token:creds.token,role:d.kick});await refresh()}catch(err){alertMsg(err.message,true)}return}
   if (d.joinBack) {
     joinStage = Number(d.joinBack);
 
@@ -696,6 +721,7 @@ document.addEventListener('click', async e => {
     } else if (d.action === 'enter') await send({
       type: 'enter'
     });
+    else if (d.action === 'reset-steps') await send({type:'reset-steps'});
     else if (d.action === 'reset' && confirm('Das aktuelle Rätsel zurücksetzen?')) await send({
       type: 'reset'
     });
@@ -716,6 +742,8 @@ if (location.hash.startsWith('#puzzle-')) {
 
 render();
 refreshAccount();
+// Returning players stay in their live room, including after a page reload.
+if (creds?.code && creds?.token) startPoll();
 
 // Keep section navigation usable from a puzzle detail without resetting a live room.
 document.addEventListener('click', event => {
