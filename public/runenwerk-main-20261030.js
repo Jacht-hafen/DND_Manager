@@ -104,30 +104,44 @@ function filteredPuzzles(){return PUZZLES.filter(p=>{const d=LIBRARY[p[0]];const
 
 async function refreshAccount() {
   try {
-    const {
-      data: {
-        user
-      }
-    } = await authClient.auth.getUser();
-
+    // Published ratings are aggregated server-side: never download other users' IDs.
+    const [authResult, summaryResult] = await Promise.all([
+      authClient.auth.getUser(),
+      authClient.rpc('rw_review_summary')
+    ]);
+    if (authResult.error) throw authResult.error;
+    const user = authResult.data.user;
     currentUser = user;
 
+    reviewStats = {};
+    if (!summaryResult.error) {
+      for (const item of summaryResult.data || []) {
+        const count = Number(item.rating_count) || 0;
+        if (!count) continue;
+        reviewStats[item.puzzle_id] = {
+          n: count,
+          total: Number(item.average_rating) * count,
+          difficulty: Number(item.average_difficulty) * count
+        };
+      }
+    } else {
+      console.warn('Bewertungsstatistik nicht verfügbar');
+    }
+
     if (user) {
-      const {
-        data
-      } = await authClient.from('rw_profiles').select('is_premium').eq('user_id', user.id).single();
-
-      isPremium = data?.is_premium === true;
-      const [favorites,reviews]=await Promise.all([authClient.from('rw_favorites').select('puzzle_id').eq('user_id',user.id),authClient.from('rw_reviews').select('puzzle_id,rating,difficulty')]);
-      favoriteIds=new Set((favorites.data||[]).map(x=>x.puzzle_id));
-      reviewStats={};for(const x of reviews.data||[]){const item=reviewStats[x.puzzle_id]??={n:0,total:0,difficulty:0};item.n++;item.total+=x.rating;item.difficulty+=x.difficulty;}
-    } else
+      const [{ data: profile }, { data: favorites, error: favoritesError }] = await Promise.all([
+        authClient.from('rw_profiles').select('is_premium').eq('user_id', user.id).single(),
+        authClient.from('rw_favorites').select('puzzle_id').eq('user_id', user.id)
+      ]);
+      isPremium = profile?.is_premium === true;
+      favoriteIds = new Set(favoritesError ? [] : (favorites || []).map(x => x.puzzle_id));
+    } else {
       isPremium = false;
-    if(!user){favoriteIds.clear();reviewStats={}}
-
+      favoriteIds.clear();
+    }
     render();
-  } catch (e) {
-    console.error('Account status:', e);
+  } catch (error) {
+    console.error('Account konnte nicht geladen werden:', error);
   }
 }
 

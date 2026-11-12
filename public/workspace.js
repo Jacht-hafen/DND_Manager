@@ -3,7 +3,7 @@ const client=createClient('https://zxzrtwfzouhbfdzextxo.supabase.co','sb_publish
 const $=s=>document.querySelector(s);
 import { STORY_PUZZLES } from './story-puzzles.js';
 const PUZZLES=[['runes','Das Runensiegel'],['levers','Die sechs Hebel'],['compass','Das Vermächtnis des Königs'],['mirrors','Die Spiegelkammer'],['pressure','Die drei Druckplatten'],['numbers','Die verborgenen Zahlen'],['chambers','Die Feuerschale'],['einstein','Die fünf Türme'],...STORY_PUZZLES.map(p=>[p.id,p.name])];
-let user=null,premium=false,groups=[],campaigns=[],sessions=[],custom=[],favorites=[],reviews=[],handouts=[];
+let user=null,premium=false,groups=[],campaigns=[],sessions=[],custom=[],favorites=[],reviews=[],reviewSummaries=[],handouts=[];
 const nameOf=id=>PUZZLES.find(p=>p[0]===id)?.[1]||custom.find(p=>p.id===id)?.title||id;
 function message(value){$('#notice').textContent=value}
 function node(tag,content='',className=''){const e=document.createElement(tag);e.textContent=content;if(className)e.className=className;return e}
@@ -14,6 +14,16 @@ async function write(promise,success){const {error}=await promise;if(error)throw
 async function token(){const {data:{session},error}=await client.auth.getSession();if(error||!session)throw Error('Bitte erneut anmelden');return session.access_token}
 async function api(name,body){const r=await fetch('/api/'+name,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const result=await r.json();if(!r.ok)throw Error(result.error||'Serverfehler');return result}
 async function run(fn){try{await fn()}catch(e){message(e.message||'Aktion fehlgeschlagen')}}
+const submittingForms=new WeakSet();
+async function runForm(form,fn){
+ if(submittingForms.has(form))return;
+ submittingForms.add(form);
+ const buttons=[...form.querySelectorAll('button[type="submit"],button:not([type])')];
+ const previous=buttons.map(button=>button.disabled);
+ buttons.forEach(button=>button.disabled=true);
+ try{await fn()}catch(error){message(error?.message||'Die Aktion konnte nicht abgeschlossen werden.')}
+ finally{buttons.forEach((button,index)=>button.disabled=previous[index]);submittingForms.delete(form)}
+}
 async function load(){
  const {data:{user:u}}=await client.auth.getUser();user=u;$('#auth-warning').hidden=!!u;$('#workspace-content').hidden=!u;if(!u)return;
  const profile=await data('rw_profiles','is_premium',q=>q.eq('user_id',u.id));premium=profile[0]?.is_premium===true;
@@ -25,8 +35,11 @@ async function load(){
   data('rw_session_index','room_id,campaign_id,owner_id,code,title,phase,puzzle,solved,last_activity,created_at,expires_at',q=>q.order('created_at',{ascending:false})),
   data('rw_custom_puzzles','id,owner_id,title,category,duration_minutes,difficulty,description,solution,hints,created_at',q=>q.order('created_at',{ascending:false})),
   data('rw_favorites','user_id,puzzle_id',q=>q.eq('user_id',u.id)),
-  data('rw_reviews','user_id,puzzle_id,rating,difficulty,comment,created_at')
+  data('rw_reviews','user_id,puzzle_id,rating,difficulty,comment,created_at',q=>q.eq('user_id',u.id))
  ]);
+ const summary=await client.rpc('rw_review_summary');
+ if(summary.error){console.warn('Bewertungsstatistik nicht verfügbar');reviewSummaries=[]}
+ else reviewSummaries=summary.data||[];
  fillSelect($('#group-select'),groups.filter(g=>g.owner_id===u.id).map(g=>[g.id,g.name]),'Erst eine Premium-Gruppe erstellen');
  fillSelect($('#session-campaign'),campaigns.filter(c=>c.owner_id===u.id).map(c=>[c.id,c.name]),'Erst eine Kampagne erstellen');
  fillSelect($('#review-puzzle'),PUZZLES);
@@ -43,18 +56,33 @@ function renderPuzzles(){const el=$('#puzzle-list');el.replaceChildren();if(!cus
 function editPuzzle(p){const form=$('#puzzle-create');for(const key of ['title','category','duration_minutes','difficulty','description','solution'])form.elements[key].value=p[key]??'';form.elements.hints.value=Array.isArray(p.hints)?p.hints.join('\n'):'';form.elements.puzzle_id.value=p.id;$('#puzzle-form-title').textContent='Rätsel bearbeiten';form.scrollIntoView({behavior:'smooth'})}
 function renderFavorites(){const el=$('#favorite-list');el.replaceChildren();if(!favorites.length)el.append(node('p','Noch keine Favoriten. Öffne die Bibliothek und markiere ein Rätsel.'));
  for(const f of favorites)el.append(row(nameOf(f.puzzle_id),'Gespeichertes Rätsel',[['Details',()=>{location.href='/#puzzle-'+encodeURIComponent(f.puzzle_id)}],['Entfernen',()=>run(async()=>{await write(client.from('rw_favorites').delete().eq('user_id',user.id).eq('puzzle_id',f.puzzle_id),'Favorit entfernt');await load()})]]))}
-function renderReviews(){const el=$('#review-list');el.replaceChildren();const own=reviews.filter(x=>x.user_id===user.id);const grouped=new Map();for(const r of reviews){const q=grouped.get(r.puzzle_id)||{total:0,count:0,difficulty:0};q.total+=r.rating;q.difficulty+=r.difficulty;q.count++;grouped.set(r.puzzle_id,q)}
- for(const [id,x] of grouped)el.append(row(nameOf(id),(x.total/x.count).toFixed(1)+'/5 Qualität · '+(x.difficulty/x.count).toFixed(1)+'/5 Schwierigkeit · '+x.count+' Bewertungen'));
- if(own.length){el.append(node('h3','Deine Bewertungen'));for(const r of own)el.append(row(nameOf(r.puzzle_id),r.rating+'/5 · '+r.comment))}}
+function renderReviews(){
+ const el=$('#review-list');
+ el.replaceChildren();
+ if(!reviewSummaries.length)el.append(node('p','Noch keine Bewertungen vorhanden.'));
+ for(const x of reviewSummaries){
+   el.append(row(nameOf(x.puzzle_id),
+    Number(x.average_rating).toFixed(1)+'/5 Qualität · '+
+    Number(x.average_difficulty).toFixed(1)+'/5 Schwierigkeit · '+
+    x.rating_count+' Bewertungen'));
+ }
+ if(reviews.length){
+   el.append(node('h3','Deine Bewertungen'));
+   for(const r of reviews){
+     el.append(row(nameOf(r.puzzle_id),r.rating+'/5 · '+r.comment));
+   }
+ }
+}
+
 async function loadHandouts(){const c=$('#handout-campaign').value;handouts=c?await data('rw_handouts','id,campaign_id,owner_id,title,content,visible_to_players',q=>q.eq('campaign_id',c).order('created_at',{ascending:false})):[];renderHandouts()}
 function renderHandouts(){const el=$('#handout-list');el.replaceChildren();if(!handouts.length)el.append(node('p','Keine Handouts in dieser Kampagne.'));
  for(const h of handouts){const e=node('div','','work-panel');e.append(node('h3',h.title),node('p',h.content),node('p',h.visible_to_players?'Für Spieler sichtbar':'Nur für den DM sichtbar','work-muted'));if(h.owner_id===user.id){const b=node('div','','work-buttons');for(const [txt,fn] of [['Freigabe ändern',()=>run(async()=>{await write(client.from('rw_handouts').update({visible_to_players:!h.visible_to_players}).eq('id',h.id),'Freigabe aktualisiert');await loadHandouts()})],['Löschen',()=>run(async()=>{if(!confirm('Handout löschen?'))return;await write(client.from('rw_handouts').delete().eq('id',h.id),'Handout gelöscht');await loadHandouts()})]]){const button=node('button',txt,'btn small');button.onclick=fn;b.append(button)}e.append(b)}el.append(e)}}
 for(const button of document.querySelectorAll('[data-tab]'))button.onclick=()=>{for(const p of document.querySelectorAll('.tab-panel'))p.hidden=p.id!==button.dataset.tab;for(const b of document.querySelectorAll('[data-tab]'))b.classList.toggle('active',b===button);if(button.dataset.tab==='handouts')run(loadHandouts)};
 $('#handout-campaign').onchange=()=>run(loadHandouts);
-$('#campaign-create').onsubmit=e=>{e.preventDefault();run(async()=>{const f=new FormData(e.target);await write(client.from('rw_campaigns').insert({group_id:f.get('group_id'),owner_id:user.id,name:String(f.get('name')).trim(),description:String(f.get('description')).trim()}),'Kampagne erstellt');e.target.reset();await load()})};
-$('#session-create').onsubmit=e=>{e.preventDefault();run(async()=>{const f=new FormData(e.target);const r=await api('create',{access_token:await token(),campaign_id:f.get('campaign_id'),title:f.get('title'),password:f.get('password')});localStorage.setItem('rw_credentials',JSON.stringify(r));message('Raum '+r.code+' erstellt. Bitte notiere das Passwort.');await load();location.href='/'})};
-$('#puzzle-create').onsubmit=e=>{e.preventDefault();run(async()=>{const f=new FormData(e.target);const puzzle={owner_id:user.id,title:String(f.get('title')).trim(),category:String(f.get('category')).trim(),duration_minutes:Number(f.get('duration_minutes')),difficulty:f.get('difficulty'),description:String(f.get('description')).trim(),solution:String(f.get('solution')),hints:String(f.get('hints')).split('\n').map(x=>x.trim()).filter(Boolean).slice(0,8)};const id=f.get('puzzle_id');await write(id?client.from('rw_custom_puzzles').update(puzzle).eq('id',id):client.from('rw_custom_puzzles').insert(puzzle),'Rätsel gespeichert');e.target.reset();$('#editing-puzzle-id').value='';$('#puzzle-form-title').textContent='Neues Rätsel';await load()})};
+$('#campaign-create').onsubmit=e=>{e.preventDefault();runForm(e.currentTarget,async()=>{const f=new FormData(e.target);await write(client.from('rw_campaigns').insert({group_id:f.get('group_id'),owner_id:user.id,name:String(f.get('name')).trim(),description:String(f.get('description')).trim()}),'Kampagne erstellt');e.target.reset();await load()})};
+$('#session-create').onsubmit=e=>{e.preventDefault();runForm(e.currentTarget,async()=>{const f=new FormData(e.target);const r=await api('create',{access_token:await token(),campaign_id:f.get('campaign_id'),title:f.get('title'),password:f.get('password')});localStorage.setItem('rw_credentials',JSON.stringify(r));message('Raum '+r.code+' erstellt. Bitte notiere das Passwort.');await load();location.href='/'})};
+$('#puzzle-create').onsubmit=e=>{e.preventDefault();runForm(e.currentTarget,async()=>{const f=new FormData(e.target);const puzzle={owner_id:user.id,title:String(f.get('title')).trim(),category:String(f.get('category')).trim(),duration_minutes:Number(f.get('duration_minutes')),difficulty:f.get('difficulty'),description:String(f.get('description')).trim(),solution:String(f.get('solution')),hints:String(f.get('hints')).split('\n').map(x=>x.trim()).filter(Boolean).slice(0,8)};const id=f.get('puzzle_id');await write(id?client.from('rw_custom_puzzles').update(puzzle).eq('id',id):client.from('rw_custom_puzzles').insert(puzzle),'Rätsel gespeichert');e.target.reset();$('#editing-puzzle-id').value='';$('#puzzle-form-title').textContent='Neues Rätsel';await load()})};
 $('#puzzle-cancel').onclick=()=>{$('#puzzle-create').reset();$('#editing-puzzle-id').value='';$('#puzzle-form-title').textContent='Neues Rätsel'};
-$('#review-create').onsubmit=e=>{e.preventDefault();run(async()=>{const f=new FormData(e.target);await write(client.from('rw_reviews').upsert({user_id:user.id,puzzle_id:f.get('puzzle_id'),rating:Number(f.get('rating')),difficulty:Number(f.get('difficulty')),comment:String(f.get('comment')).trim()},{onConflict:'user_id,puzzle_id'}),'Bewertung gespeichert');await load()})};
-$('#handout-create').onsubmit=e=>{e.preventDefault();run(async()=>{const f=new FormData(e.target);const campaign_id=$('#handout-campaign').value;if(!campaign_id)throw Error('Bitte Kampagne wählen');await write(client.from('rw_handouts').insert({owner_id:user.id,campaign_id,title:String(f.get('title')).trim(),content:String(f.get('content')),visible_to_players:f.has('visible_to_players')}),'Handout gespeichert');e.target.reset();await loadHandouts()})};
+$('#review-create').onsubmit=e=>{e.preventDefault();runForm(e.currentTarget,async()=>{const f=new FormData(e.target);await write(client.from('rw_reviews').upsert({user_id:user.id,puzzle_id:f.get('puzzle_id'),rating:Number(f.get('rating')),difficulty:Number(f.get('difficulty')),comment:String(f.get('comment')).trim()},{onConflict:'user_id,puzzle_id'}),'Bewertung gespeichert');await load()})};
+$('#handout-create').onsubmit=e=>{e.preventDefault();runForm(e.currentTarget,async()=>{const f=new FormData(e.target);const campaign_id=$('#handout-campaign').value;if(!campaign_id)throw Error('Bitte Kampagne wählen');await write(client.from('rw_handouts').insert({owner_id:user.id,campaign_id,title:String(f.get('title')).trim(),content:String(f.get('content')),visible_to_players:f.has('visible_to_players')}),'Handout gespeichert');e.target.reset();await loadHandouts()})};
 run(load);
